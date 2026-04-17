@@ -105,13 +105,10 @@ def _format_revisions(revisions: list[dict]) -> str:
         if date_str:
             try:
                 dt = datetime.strptime(date_str, "%Y-%m-%d")
-                date_str = dt.strftime("%-m/%-d/%y")  # Linux
-            except (ValueError, AttributeError):
-                try:
-                    dt = datetime.strptime(date_str, "%Y-%m-%d")
-                    date_str = f"{dt.month}/{dt.day}/{dt.strftime('%y')}"
-                except ValueError:
-                    pass
+                # Use month/day without leading zero, cross-platform
+                date_str = f"{dt.month}/{dt.day}/{dt.strftime('%y')}"
+            except ValueError:
+                pass
         if date_str:
             parts.append(f"{rev_label} ({date_str})")
         else:
