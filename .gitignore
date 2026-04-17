@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+*.egg
+
+# Node / Vite
+node_modules/
+frontend/dist/
+
+# Tauri build artifacts
+frontend/src-tauri/target/
+frontend/src-tauri/gen/
+
+# Rust
+Cargo.lock
+
+# Env
+.env
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
