@@ -1,159 +1,121 @@
-// R3P Drawing List Manager — Tauri desktop shell
+// Drawing List Manager — Tauri desktop shell
 //
-// On startup the Rust `setup` hook checks whether the backend is already
-// listening on 127.0.0.1:8001.  If not it locates the repository's
-// `backend/` directory, finds a Python interpreter, and spawns
-//   python -m uvicorn app:app --host 127.0.0.1 --port 8001 --reload
-//
-// Python discovery prefers the Miniconda runtime:
-//   1. $CONDA_PREFIX/python (active conda env)
-//   2. Common Miniconda install paths (~/<miniconda3|anaconda3>/python)
-//   3. `python` on PATH as a final fallback
-//
-// The child process is terminated when the Tauri window closes.
-//
-// The React frontend polls `/api/health` independently and shows a
-// waiting spinner until the backend is reachable — no Rust→JS readiness
-// IPC is needed.
+// Startup sequence:
+//   1. Splash window opens with visible:false; React invokes `splash_ready`
+//      after the first CSS paint so the user never sees a transparent ghost.
+//   2. Background thread runs the setup sequence while emitting
+//      `splash://status` events that drive the splash terminal animation:
+//        a. Spawn the PyInstaller sidecar (or Python dev-server fallback).
+//        b. Emit "Mounting shared drive" → Ok  (informational only).
+//        c. Emit "Checking for updates" → Ok  (deferred to React on mount).
+//   3. The thread waits until at least MIN_SPLASH_MS have elapsed so the
+//      full animation plays before the transition.
+//   4. The splash closes and the main window opens. The React app then
+//      invokes `check_for_update` on mount and shows the UpdateModal if
+//      a newer version is found on the shared drive.
 
-use std::net::TcpStream;
-use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
+mod sidecar;
+
+use desktop_toolkit::{splash, updater};
+use desktop_toolkit::updater::UpdateState;
+
+use std::process::Child;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+use tauri::{Emitter, Manager};
+
+// ── Backend state ─────────────────────────────────────────────────────────
+
+/// Holds the backend base URL; updated once the sidecar starts.
+struct BackendState {
+    url: Mutex<String>,
+}
+
+/// Tauri command: return the backend base URL to the webview.
+#[tauri::command]
+fn get_backend_url(state: tauri::State<BackendState>) -> String {
+    state.url.lock().unwrap().clone()
+}
 
 const BACKEND_ADDR: &str = "127.0.0.1:8001";
 
 /// Returns `true` when something is already listening on [`BACKEND_ADDR`].
 fn is_backend_running() -> bool {
-    TcpStream::connect_timeout(
+    std::net::TcpStream::connect_timeout(
         &BACKEND_ADDR.parse().expect("invalid socket address"),
         Duration::from_millis(300),
     )
     .is_ok()
 }
 
-/// Return a working Python executable path, preferring Miniconda.
-fn find_python() -> Option<String> {
-    let mut candidates: Vec<PathBuf> = Vec::new();
+// ── DLM constants ─────────────────────────────────────────────────────────
 
-    // 1. Active conda environment ($CONDA_PREFIX).
-    if let Ok(prefix) = std::env::var("CONDA_PREFIX") {
-        let prefix = PathBuf::from(prefix);
-        if cfg!(windows) {
-            candidates.push(prefix.join("python.exe"));
-        } else {
-            candidates.push(prefix.join("bin").join("python"));
-        }
-    }
+/// Directory on the shared drive that contains `latest.json` and the installer.
+/// Stub: the real path will be wired when DLM ships its first installer.
+const DLM_UPDATE_PATH_DEFAULT: &str =
+    r"G:\Shared drives\R3P RESOURCES\APPS\Drawing List Manager";
 
-    // 2. Well-known Miniconda / Anaconda install directories.
-    if let Some(home) = home_dir() {
-        let dir_names = ["miniconda3", "Miniconda3", "anaconda3", "Anaconda3"];
-        for dir in &dir_names {
-            if cfg!(windows) {
-                candidates.push(home.join(dir).join("python.exe"));
-            } else {
-                candidates.push(home.join(dir).join("bin").join("python"));
-            }
-        }
-    }
+/// Sub-directory of `%LOCALAPPDATA%` used for the updater log.
+const DLM_LOG_DIR: &str = "Drawing List Manager";
 
-    for path in &candidates {
-        println!("[tauri] Checking conda Python: {}", path.display());
-        if path.is_file() {
-            if Command::new(path)
-                .arg("--version")
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .map(|s| s.success())
-                .unwrap_or(false)
-            {
-                println!("[tauri] Found conda Python: {}", path.display());
-                return Some(path.to_string_lossy().into_owned());
-            }
-        }
-    }
+/// App data directory name used for the splash-seen sentinel.
+const DLM_APP_IDENTIFIER: &str = "Drawing List Manager";
 
-    // 3. Fallback: `python` on PATH.
-    println!("[tauri] No conda Python found; falling back to `python` on PATH");
-    if Command::new("python")
-        .arg("--version")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-    {
-        println!("[tauri] Found PATH Python: python");
-        return Some("python".to_string());
-    }
+/// PyInstaller sidecar binary name (without `.exe`).
+const DLM_SIDECAR_NAME: &str = "dlm-backend";
 
-    None
+// ── Splash timing ─────────────────────────────────────────────────────────
+
+/// Minimum splash display for first run / post-update (ms).
+const MIN_SPLASH_MS: u64 = 13_000;
+
+/// Minimum splash display for subsequent launches (ms).
+const MIN_SPLASH_MS_SHORT: u64 = 3_200;
+
+// ── Tauri commands: update check / start ──────────────────────────────────
+
+/// Returned by the `check_for_update` Tauri command.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CheckUpdateResult {
+    update_available: bool,
+    version: Option<String>,
+    notes: Option<String>,
 }
 
-/// Cross-platform helper to obtain the user's home directory.
-fn home_dir() -> Option<PathBuf> {
-    #[cfg(windows)]
-    {
-        std::env::var("USERPROFILE").ok().map(PathBuf::from)
-    }
-    #[cfg(not(windows))]
-    {
-        std::env::var("HOME").ok().map(PathBuf::from)
+/// Check whether a newer version is available on the shared drive.
+///
+/// All failures degrade silently — returns `{ updateAvailable: false }` so
+/// the user can still use the app when the drive is unreachable.
+#[tauri::command]
+fn check_for_update(state: tauri::State<UpdateState>) -> CheckUpdateResult {
+    match updater::check_for_update(env!("CARGO_PKG_VERSION"), DLM_LOG_DIR) {
+        updater::UpdateCheckResult::UpdateAvailable { latest, update_path } => {
+            *state.latest.lock().unwrap() = Some(latest.clone());
+            *state.update_path.lock().unwrap() = Some(update_path);
+            CheckUpdateResult {
+                update_available: true,
+                version: Some(latest.version),
+                notes: latest.notes,
+            }
+        }
+        _ => CheckUpdateResult {
+            update_available: false,
+            version: None,
+            notes: None,
+        },
     }
 }
 
-/// Locate the repository's `backend/` directory containing `app.py`.
-fn find_backend_dir() -> Option<PathBuf> {
-    // 1. Compile-time anchor (most reliable during development).
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let anchored = manifest_dir.join("..").join("..").join("backend");
-    println!(
-        "[tauri] Checking CARGO_MANIFEST_DIR anchor: {}",
-        anchored.display()
-    );
-    if anchored.join("app.py").is_file() {
-        if let Ok(abs) = anchored.canonicalize() {
-            println!(
-                "[tauri] Found backend via CARGO_MANIFEST_DIR: {}",
-                abs.display()
-            );
-            return Some(abs);
-        }
-    }
-
-    // 2. CWD-relative fallback.
-    let cwd = match std::env::current_dir() {
-        Ok(d) => d,
-        Err(e) => {
-            eprintln!(
-                "[tauri] \u{26a0} Could not determine current working directory: {e}"
-            );
-            return None;
-        }
-    };
-    println!(
-        "[tauri] CARGO_MANIFEST_DIR anchor missed; trying CWD-relative paths (cwd = {})",
-        cwd.display()
-    );
-    for rel in ["../backend", "../../backend", "./backend"] {
-        let p = PathBuf::from(rel);
-        if p.join("app.py").is_file() {
-            if let Ok(abs) = p.canonicalize() {
-                println!(
-                    "[tauri] Found backend via CWD-relative '{}': {}",
-                    rel,
-                    abs.display()
-                );
-                return Some(abs);
-            }
-        }
-    }
-
-    None
+/// Delegate the update orchestration to the `desktop-toolkit-updater.exe` shim.
+#[tauri::command]
+fn start_update(
+    app: tauri::AppHandle,
+    state: tauri::State<UpdateState>,
+) -> Result<(), String> {
+    updater::start_update(app, state, DLM_SIDECAR_NAME, DLM_LOG_DIR)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -161,110 +123,155 @@ pub fn run() {
     let child: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
     let child_for_setup = child.clone();
 
+    // Set the default shared-drive update path for the framework's updater module.
+    // SAFETY: single-threaded at this point — tauri::Builder hasn't spawned any
+    // threads yet. `std::env::set_var` is unsafe in Rust 1.81+ in multi-threaded
+    // programs; this call is safe here because it precedes thread creation.
+    if std::env::var(updater::UPDATE_PATH_ENV_VAR).is_err() {
+        #[allow(unsafe_code)]
+        // SAFETY: single-threaded at this point — see above.
+        unsafe {
+            std::env::set_var(updater::UPDATE_PATH_ENV_VAR, DLM_UPDATE_PATH_DEFAULT);
+        }
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .setup(move |_app| {
-            // ── Skip if the backend is already reachable ────────
-            if is_backend_running() {
-                println!("[tauri] Backend already running on {BACKEND_ADDR}");
-                return Ok(());
-            }
+        .invoke_handler(tauri::generate_handler![
+            get_backend_url,
+            check_for_update,
+            start_update,
+            splash::splash_is_first_run,
+            splash::splash_ready,
+            splash::splash_fade_complete,
+        ])
+        .manage(BackendState {
+            url: Mutex::new(format!("http://{BACKEND_ADDR}")),
+        })
+        .manage(UpdateState::new())
+        .manage(splash::SplashState::new(splash::first_launch_after_update(
+            DLM_APP_IDENTIFIER,
+            env!("CARGO_PKG_VERSION"),
+        )))
+        .setup(move |app| {
+            let app_handle = app.handle().clone();
+            let child_arc = child_for_setup.clone();
 
-            // ── Locate a Python interpreter ────────────────────
-            let python = match find_python() {
-                Some(p) => p,
-                None => {
-                    eprintln!(
-                        "[tauri] \u{26a0} Python not found.\n\
-                         [tauri]   Tried: $CONDA_PREFIX, ~/miniconda3, ~/anaconda3, `python` on PATH.\n\
-                         [tauri]   Please activate your Miniconda environment and retry, or start the backend manually:\n\
-                         [tauri]     cd backend && python -m uvicorn app:app --port 8001"
-                    );
-                    return Ok(());
-                }
-            };
-
-            // ── Locate backend directory ───────────────────────
-            let backend_dir = match find_backend_dir() {
-                Some(d) => d,
-                None => {
-                    eprintln!(
-                        "[tauri] \u{26a0} Could not find backend/app.py.\n\
-                         [tauri]   Please start the backend manually."
-                    );
-                    return Ok(());
-                }
-            };
-
-            println!(
-                "[tauri] Starting backend: {} -m uvicorn app:app --host 127.0.0.1 --port 8001 --reload",
-                python
-            );
-            println!(
-                "[tauri] Child process cwd: {}",
-                backend_dir.display()
-            );
-
-            match Command::new(&python)
-                .args([
-                    "-m", "uvicorn", "app:app",
-                    "--host", "127.0.0.1",
-                    "--port", "8001",
-                    "--reload",
-                ])
-                .current_dir(&backend_dir)
-                .spawn()
-            {
-                Ok(c) => {
-                    let pid = c.id();
-                    println!("[tauri] Backend spawned (PID {pid})");
-                    *child_for_setup.lock().unwrap() = Some(c);
-
-                    let child_check = child_for_setup.clone();
-                    thread::spawn(move || {
-                        thread::sleep(Duration::from_secs(2));
-                        if let Ok(mut guard) = child_check.lock() {
-                            if let Some(ref mut proc) = *guard {
-                                match proc.try_wait() {
-                                    Ok(Some(status)) => {
-                                        eprintln!(
-                                            "[tauri] \u{26a0} Backend process (PID {pid}) exited early with {status}.\n\
-                                             [tauri]   Check that uvicorn and all backend dependencies are installed:\n\
-                                             [tauri]     cd backend && pip install -r requirements.txt"
-                                        );
-                                    }
-                                    Ok(None) => {}
-                                    Err(e) => {
-                                        eprintln!("[tauri] \u{26a0} Could not check backend status: {e}");
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                Err(e) => {
-                    eprintln!(
-                        "[tauri] \u{26a0} Failed to spawn backend: {e}\n\
-                         [tauri]   Command: {python} -m uvicorn app:app --host 127.0.0.1 --port 8001 --reload\n\
-                         [tauri]   Working directory: {}\n\
-                         [tauri]   Please start the backend manually:\n\
-                         [tauri]     cd backend && python -m uvicorn app:app --port 8001",
-                        backend_dir.display()
-                    );
-                }
-            }
+            // Run the startup sequence in a background thread so the splash
+            // window remains responsive (event loop keeps running).
+            thread::spawn(move || {
+                startup_sequence(app_handle, child_arc);
+            });
 
             Ok(())
         })
+        .on_window_event({
+            let child_cleanup = child.clone();
+            move |_window, event| {
+                if let tauri::WindowEvent::Destroyed = event {
+                    let mut proc_opt = child_cleanup.lock().unwrap().take();
+                    if let Some(ref mut proc) = proc_opt {
+                        println!("[tauri] Stopping backend sidecar (PID {})", proc.id());
+                        let _ = proc.kill();
+                        let _ = proc.wait();
+                    }
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
 
-    // ── Cleanup: terminate the backend when the app exits ───
-    let mut proc_opt = child.lock().unwrap().take();
-    if let Some(ref mut proc) = proc_opt {
-        println!("[tauri] Stopping backend (PID {})", proc.id());
-        let _ = proc.kill();
-        let _ = proc.wait();
+// ── Startup sequence ──────────────────────────────────────────────────────
+
+fn startup_sequence(app: tauri::AppHandle, child_arc: Arc<Mutex<Option<Child>>>) {
+    let start = Instant::now();
+
+    // Brief pause to let the splash window finish its initial render.
+    thread::sleep(Duration::from_millis(200));
+
+    // ── 1. Backend ────────────────────────────────────────────────────────
+    splash::emit_status(
+        &app,
+        "backend",
+        "Starting backend service",
+        splash::StatusKind::Pending,
+    );
+    let backend_url = do_spawn_backend(&child_arc);
+    println!("[tauri] Backend URL: {backend_url}");
+    splash::emit_status(&app, "backend", "Starting backend service", splash::StatusKind::Ok);
+
+    // Store backend URL in managed state.
+    if let Some(state) = app.try_state::<BackendState>() {
+        *state.url.lock().unwrap() = backend_url;
     }
+
+    // ── 2. Shared drive (informational; actual check deferred to React) ───
+    splash::emit_status(&app, "mount", "Mounting shared drive", splash::StatusKind::Pending);
+    splash::emit_status(&app, "mount", "Mounting shared drive", splash::StatusKind::Ok);
+
+    // ── 3. Update check status (deferred; emit Ok immediately) ───────────
+    splash::emit_status(&app, "updates", "Checking for updates", splash::StatusKind::Pending);
+    splash::emit_status(&app, "updates", "Checking for updates", splash::StatusKind::Ok);
+
+    // ── 4. Final status ────────────────────────────────────────────────────
+    splash::emit_status(&app, "final", "Ready", splash::StatusKind::Ok);
+    thread::sleep(Duration::from_millis(200));
+
+    // ── 5. Minimum display duration ────────────────────────────────────────
+    let is_first = app
+        .try_state::<splash::SplashState>()
+        .map(|s| s.first_run())
+        .unwrap_or(true);
+    let min_ms = if is_first { MIN_SPLASH_MS } else { MIN_SPLASH_MS_SHORT };
+    let elapsed = start.elapsed().as_millis() as u64;
+    if elapsed < min_ms {
+        thread::sleep(Duration::from_millis(min_ms - elapsed));
+    }
+
+    // ── 6. Transition to main window ──────────────────────────────────────
+    const FADE_HOLD_MS:     u64 = 800;
+    const FADE_DURATION_MS: u64 = 1000;
+    const FADE_SAFETY_MS:   u64 = 400;
+
+    if let Err(e) = app.emit("splash://fade-now", ()) {
+        eprintln!("[splash] emit splash://fade-now failed: {e}");
+    }
+
+    thread::sleep(Duration::from_millis(
+        FADE_HOLD_MS + FADE_DURATION_MS + FADE_SAFETY_MS,
+    ));
+
+    // Safety net: idempotent if the frontend already invoked
+    // splash_fade_complete from `transitionend`.
+    let app_for_ui = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Some(main_win) = app_for_ui.get_webview_window("main") {
+            let _ = main_win.show();
+        }
+        splash::close_splash(&app_for_ui);
+    });
+}
+
+// ── Backend spawning ──────────────────────────────────────────────────────
+
+fn do_spawn_backend(child_arc: &Arc<Mutex<Option<Child>>>) -> String {
+    // Production: try the PyInstaller sidecar first.
+    if let Some(sidecar_path) = sidecar::find_sidecar_path() {
+        println!("[sidecar] Found sidecar at: {}", sidecar_path.display());
+        match sidecar::spawn_sidecar(&sidecar_path) {
+            Ok((proc, port)) => {
+                *child_arc.lock().unwrap() = Some(proc);
+                return format!("http://127.0.0.1:{port}");
+            }
+            Err(e) => {
+                eprintln!("[sidecar] {e} -- falling back to Python dev server");
+            }
+        }
+    }
+
+    // Dev fallback: Python uvicorn on the fixed port 8001.
+    sidecar::spawn_python_dev_backend(child_arc);
+    format!("http://{BACKEND_ADDR}")
 }

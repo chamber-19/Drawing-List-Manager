@@ -1,9 +1,10 @@
 {
-  "name": "r3p-drawing-list-manager",
+  "name": "drawing-list-manager",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "prebuild": "desktop-toolkit-sync-installer-assets",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -12,8 +13,9 @@
     "desktop:build": "tauri build"
   },
   "dependencies": {
+    "@chamber-19/desktop-toolkit": "^2.3.0",
+    "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.7.0",
-    "@tauri-apps/plugin-fs": "^2.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

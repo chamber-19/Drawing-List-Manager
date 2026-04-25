@@ -2,11 +2,13 @@
 R3P Drawing List Manager — Backend API
 
 Routes:
-    GET  /api/health                   Health check
-    POST /api/register/open            Read a .r3pdrawings.json register from disk
-    POST /api/register/save            Write a register to disk as JSON
-    POST /api/register/import-excel    Import a legacy Master Deliverable List .xlsx
-    POST /api/register/export-full     Export full branded .xlsx
+    GET  /api/health                    Health check
+    POST /api/project/create            Create new project folder + marker
+    POST /api/project/open              Read project marker + register
+    GET  /api/project/recent            Return recent-projects list
+    POST /api/register/save             Write a register to disk + regenerate Excel
+    POST /api/register/import-excel     One-time legacy MDL import
+    GET  /api/register/validate         Validate register, return warnings
 
 Run:
     uvicorn app:app --reload --port 8001
@@ -14,14 +16,20 @@ Run:
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any
 
-from core.register import open_register, save_register
+from core.register import open_register, save_register, validate_register
 from core.excel_import import import_excel
 from core.excel_export import export_full
+from core.project_config import (
+    create_project,
+    read_marker,
+    add_recent,
+    list_recent,
+)
 
 
 # ─── App Setup ────────────────────────────────────────────────
@@ -49,42 +57,85 @@ def health():
 
 # ─── Request / Response Models ────────────────────────────────
 
-class OpenRequest(BaseModel):
-    path: str
+class CreateProjectRequest(BaseModel):
+    folder: str
+    project_number: str
+    project_name: str = ""
+    paths: dict[str, str] = {}
 
 
-class SaveRequest(BaseModel):
-    path: str
+class OpenProjectRequest(BaseModel):
+    marker_path: str
+
+
+class SaveRegisterRequest(BaseModel):
+    marker_path: str
     register: dict[str, Any]
 
 
 class ImportExcelRequest(BaseModel):
-    path: str
+    marker_path: str
+    xlsx_path: str
 
 
-class ExportFullRequest(BaseModel):
-    path: str
-    register: dict[str, Any]
+# ─── Project Endpoints ────────────────────────────────────────
+
+@app.post("/api/project/create")
+def api_create_project(req: CreateProjectRequest):
+    try:
+        marker = create_project(
+            folder=req.folder,
+            project_number=req.project_number,
+            project_name=req.project_name,
+            paths=req.paths or {},
+        )
+        return {"success": True, "marker": marker}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to create project: {e}")
+
+
+@app.post("/api/project/open")
+def api_open_project(req: OpenProjectRequest):
+    try:
+        marker = read_marker(req.marker_path)
+        import os
+        project_dir = os.path.dirname(os.path.abspath(req.marker_path))
+        register_file = marker.get("register_file", "")
+        register_path = os.path.join(project_dir, register_file)
+        register = open_register(register_path)
+        add_recent(req.marker_path)
+        return {"success": True, "marker": marker, "register": register}
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Failed to open project: {e}")
+
+
+@app.get("/api/project/recent")
+def api_list_recent():
+    try:
+        return {"success": True, "recent": list_recent()}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to list recent projects: {e}")
 
 
 # ─── Register Endpoints ───────────────────────────────────────
 
-@app.post("/api/register/open")
-def api_open_register(req: OpenRequest):
-    try:
-        register = open_register(req.path)
-        return {"success": True, "register": register}
-    except FileNotFoundError:
-        raise HTTPException(404, f"File not found: {req.path}")
-    except Exception as e:
-        raise HTTPException(500, f"Failed to open register: {e}")
-
-
 @app.post("/api/register/save")
-def api_save_register(req: SaveRequest):
+def api_save_register(req: SaveRegisterRequest):
     try:
-        save_register(req.path, req.register)
+        import os
+        project_dir = os.path.dirname(os.path.abspath(req.marker_path))
+        marker = read_marker(req.marker_path)
+        register_file = marker.get("register_file", "")
+        register_path = os.path.join(project_dir, register_file)
+        save_register(register_path, req.register)
+        # Regenerate Excel alongside the register file.
+        xlsx_path = register_path.replace(".r3pdrawings.json", ".xlsx")
+        export_full(xlsx_path, req.register)
         return {"success": True}
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
     except Exception as e:
         raise HTTPException(500, f"Failed to save register: {e}")
 
@@ -92,7 +143,7 @@ def api_save_register(req: SaveRequest):
 @app.post("/api/register/import-excel")
 def api_import_excel(req: ImportExcelRequest):
     try:
-        result = import_excel(req.path)
+        result = import_excel(req.xlsx_path)
         return {
             "success": True,
             "register": result["register"],
@@ -100,15 +151,23 @@ def api_import_excel(req: ImportExcelRequest):
             "drawing_count": result["drawing_count"],
         }
     except FileNotFoundError:
-        raise HTTPException(404, f"File not found: {req.path}")
+        raise HTTPException(404, f"File not found: {req.xlsx_path}")
     except Exception as e:
         raise HTTPException(500, f"Failed to import Excel: {e}")
 
 
-@app.post("/api/register/export-full")
-def api_export_full(req: ExportFullRequest):
+@app.get("/api/register/validate")
+def api_validate_register(marker_path: str = Query(...)):
     try:
-        export_full(req.path, req.register)
-        return {"success": True}
+        import os
+        project_dir = os.path.dirname(os.path.abspath(marker_path))
+        marker = read_marker(marker_path)
+        register_file = marker.get("register_file", "")
+        register_path = os.path.join(project_dir, register_file)
+        register = open_register(register_path)
+        warnings = validate_register(register)
+        return {"success": True, "warnings": warnings}
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
     except Exception as e:
-        raise HTTPException(500, f"Failed to export: {e}")
+        raise HTTPException(500, f"Failed to validate register: {e}")

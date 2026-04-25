@@ -26,7 +26,8 @@ from typing import Any
 
 import openpyxl
 
-from core.register import SCHEMA_VERSION, _now_iso, VALID_STATUSES
+from core.register import _now_iso, VALID_STATUSES
+from core.migration import migrate_register
 
 
 _STATUS_NORMALISE = {
@@ -185,13 +186,15 @@ def import_excel(path: str) -> dict[str, Any]:
         if m:
             project_number = m.group(1).upper()
 
-    register: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
+    register_v1: dict[str, Any] = {
+        "schema_version": 1,
         "project_number": project_number,
         "project_name": "",
         "updated_at": _now_iso(),
         "sets": sets,
     }
+
+    register = migrate_register(register_v1)
 
     return {
         "register": register,

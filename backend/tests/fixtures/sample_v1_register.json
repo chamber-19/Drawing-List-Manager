@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "project_number": "R3P-25074",
+  "project_name": "Sample Project",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "sets": [
+    {
+      "name": "P&C",
+      "drawings": [
+        {
+          "drawing_number": "R3P-25074-E6-0001",
+          "description": "OVERALL SINGLE LINE DIAGRAM",
+          "status": "READY FOR SUBMITTAL",
+          "notes": null,
+          "revisions": [
+            {"rev": "A", "date": "2025-10-17"},
+            {"rev": "B", "date": "2025-11-15"},
+            {"rev": "C", "date": "2025-12-20"},
+            {"rev": "0", "date": "2026-01-10"},
+            {"rev": "1", "date": "2026-02-05"}
+          ]
+        },
+        {
+          "drawing_number": "R3P-25074-E6-0002",
+          "description": "MV SWITCHGEAR SLD",
+          "status": "IN DESIGN",
+          "notes": null,
+          "revisions": [
+            {"rev": "A", "date": "2025-10-17"},
+            {"rev": "B", "date": "2025-11-15"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Physicals",
+      "drawings": [
+        {
+          "drawing_number": "R3P-25074-E1-0001",
+          "description": "GENERAL ARRANGEMENT — SUBSTATION",
+          "status": "READY FOR DRAFTING",
+          "notes": null,
+          "revisions": [
+            {"rev": "A", "date": "2025-10-17"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SUB",
+      "drawings": [
+        {
+          "drawing_number": "R3P-25074-E1-0050",
+          "description": "SUBSTATION FOUNDATION PLAN",
+          "status": "NOT CREATED YET",
+          "notes": null,
+          "revisions": []
+        }
+      ]
+    }
+  ]
+}
