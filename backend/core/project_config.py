@@ -10,9 +10,19 @@ Files managed:
 API:
   create_project(folder, project_number, project_name, paths) → marker dict
   read_marker(marker_path)                                     → marker dict
-  resolve_paths(marker)                                        → dict[str, str]
+  resolve_paths(marker, marker_path)                           → dict[str, str]
   add_recent(marker_path)                                      → None
   list_recent()                                                → list[dict]
+
+Marker ``paths`` block:
+  Always carries three named keys, each relative to the marker file's own
+  directory:
+    - ``drawings_dir`` — folder containing live drawing files
+    - ``pdfs_dir``     — folder containing rendered PDFs
+    - ``index_xlsx``   — branded Excel index path (empty default; generated
+                         alongside the register on save)
+  Defaults are defined by ``DEFAULT_PROJECT_PATHS``; caller-supplied values
+  in ``create_project(paths=...)`` override on a per-key basis.
 """
 
 from __future__ import annotations
@@ -28,6 +38,16 @@ _MAX_RECENT = 10
 
 # Marker file name placed inside the project folder.
 MARKER_FILENAME = ".r3p-project.json"
+
+
+# Default sub-paths for a new project marker. Always present in the
+# written marker; user-supplied values in `paths` override on a per-key
+# basis. All paths are relative to the marker file's directory.
+DEFAULT_PROJECT_PATHS: dict[str, str] = {
+    "drawings_dir": "Drawings/Live",
+    "pdfs_dir":     "Drawings/PDF",
+    "index_xlsx":   "",  # empty default — generated alongside the register on save
+}
 
 
 # ── Path helpers ──────────────────────────────────────────────────────────
@@ -65,7 +85,9 @@ def create_project(
     project_name:
         Optional descriptive name.
     paths:
-        Optional dict of named sub-paths (e.g. ``{"drawings": "drawings/"}``).
+        Optional dict of named sub-paths overriding ``DEFAULT_PROJECT_PATHS``
+        on a per-key basis. The keys ``drawings_dir``, ``pdfs_dir``, and
+        ``index_xlsx`` are always present in the written marker.
 
     Returns
     -------
@@ -82,13 +104,15 @@ def create_project(
     register = new_register(project_number, project_name)
     save_register(register_path, register)
 
+    merged_paths = {**DEFAULT_PROJECT_PATHS, **(paths or {})}
+
     marker: dict[str, Any] = {
         "schema_version": 1,
         "project_number": project_number,
         "project_name": project_name,
         "created_at": _now_iso(),
         "register_file": register_filename,
-        "paths": paths or {},
+        "paths": merged_paths,
     }
 
     marker_path = os.path.join(folder, MARKER_FILENAME)
@@ -107,18 +131,25 @@ def read_marker(marker_path: str) -> dict[str, Any]:
         return json.load(fh)
 
 
-def resolve_paths(marker: dict[str, Any]) -> dict[str, str]:
+def resolve_paths(marker: dict[str, Any], marker_path: str) -> dict[str, str]:
     """Resolve named sub-paths in *marker* to absolute filesystem paths.
 
-    The marker is expected to live alongside the project folder; paths stored
-    inside are relative to the marker's directory.
+    Paths inside the marker are stored relative to the marker's own
+    directory. This function joins each one against
+    ``os.path.dirname(marker_path)`` and returns absolute paths.
+
+    Absolute paths in the marker pass through unchanged (normalised).
 
     Returns a dict mapping each name to its resolved absolute path.
     """
-    # The marker itself doesn't store its own location, so callers should pass
-    # the dict from read_marker() together with the marker directory.
-    # This helper resolves the ``paths`` sub-dict relative to the marker dir.
-    return {k: os.path.abspath(v) for k, v in marker.get("paths", {}).items()}
+    base_dir = os.path.dirname(os.path.abspath(marker_path))
+    resolved: dict[str, str] = {}
+    for k, v in marker.get("paths", {}).items():
+        if os.path.isabs(v):
+            resolved[k] = os.path.normpath(v)
+        else:
+            resolved[k] = os.path.normpath(os.path.join(base_dir, v))
+    return resolved
 
 
 # ── Recent list ───────────────────────────────────────────────────────────

@@ -54,7 +54,7 @@ export default function App() {
 
       {/* Footer */}
       <footer style={{ display: "flex", justifyContent: "space-between", padding: "10px 32px", borderTop: `1px solid ${T.bd}`, fontSize: "11px", fontFamily: T.fM, color: T.t3, flexShrink: 0, background: T.bgEl }}>
-        <span>Drawing List Manager v1.0</span>
+        <span>Drawing List Manager v{__APP_VERSION__}</span>
         <span>ROOT3POWER ENGINEERING</span>
       </footer>
 

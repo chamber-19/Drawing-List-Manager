@@ -180,7 +180,20 @@ def validate_register(reg: dict) -> list[str]:
                     f"{rev_prefix}: 'percent' must be null for phase '{phase}'."
                 )
 
-            # Rev label format
+            # IFA → IFC transition: first IFC rev must be "0".
+            # Check this BEFORE updating numeric_series_started below, otherwise
+            # the guard is always satisfied and this branch is unreachable.
+            if (
+                prev_phase == "IFA"
+                and phase == "IFC"
+                and not numeric_series_started
+                and rev != "0"
+            ):
+                errors.append(
+                    f"{rev_prefix}: first IFC revision after IFA must be '0' (got '{rev}')."
+                )
+
+            # Rev label format (also updates numeric_series_started)
             if phase == "IFA":
                 if not _IFA_REV_RE.match(rev):
                     errors.append(
@@ -193,17 +206,6 @@ def validate_register(reg: dict) -> list[str]:
                     )
                 else:
                     numeric_series_started = True
-
-            # IFA → IFC transition: first IFC rev must be "0"
-            if (
-                prev_phase == "IFA"
-                and phase == "IFC"
-                and not numeric_series_started
-                and rev != "0"
-            ):
-                errors.append(
-                    f"{rev_prefix}: first IFC revision after IFA must be '0' (got '{rev}')."
-                )
 
             # Chronological order
             if prev_date and date and date < prev_date:
