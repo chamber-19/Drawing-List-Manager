@@ -13,6 +13,9 @@ Supported migrations:
       {"rev","date","phase","percent"}. Default phase: "IFA" if rev is a
       letter, "IFC" if rev is a digit.  percent: None.
     - Add "current_phase": "IFA" to the top-level register.
+  v2 → v3:
+    - Add ``superseded: False`` to every drawing that does not already
+      have the field.
 """
 
 from __future__ import annotations
@@ -144,12 +147,25 @@ def _migrate_v1_to_v2(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _migrate_v2_to_v3(data: dict[str, Any]) -> dict[str, Any]:
+    """Add ``superseded: False`` to every drawing.
+
+    Drawings that already carry a ``superseded`` field (e.g. round-trip
+    through a v3-aware tool) are left alone.
+    """
+    for d in data.get("drawings", []):
+        if "superseded" not in d:
+            d["superseded"] = False
+    data["schema_version"] = 3
+    return data
+
+
 # ── Public API ────────────────────────────────────────────────────────────
 
 def migrate_register(data: dict[str, Any]) -> dict[str, Any]:
     """Upgrade a register dict to the current SCHEMA_VERSION.
 
-    Migrations applied:
+    Migrations applied (idempotent on already-current versions):
       v1 → v2:
         - Flatten sets[].drawings[] into a single drawings[] list, with each
           drawing's ``set`` field carrying the parent set name.
@@ -160,6 +176,8 @@ def migrate_register(data: dict[str, Any]) -> dict[str, Any]:
         - Convert each revision from {"rev","date"} to
           {"rev","date","phase","percent"}. Default phase: "IFA" if rev is
           a letter, "IFC" if rev is a digit.  percent: None.
+      v2 → v3:
+        - Add ``superseded: False`` to every drawing.
 
     Returns a *new* dict (does not mutate ``data``).
     """
@@ -169,9 +187,8 @@ def migrate_register(data: dict[str, Any]) -> dict[str, Any]:
         data = _migrate_v1_to_v2(data)
         version = 2
 
-    # Future migrations would be chained here:
-    # if version == 2:
-    #     data = _migrate_v2_to_v3(data)
-    #     version = 3
+    if version == 2:
+        data = _migrate_v2_to_v3(data)
+        version = 3
 
     return data

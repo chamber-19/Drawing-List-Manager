@@ -71,7 +71,12 @@ export default function ProjectBar({
   register,
   scan,
   view,
+  dirty,
+  saving,
   onRescan,
+  onSave,
+  onPromoteToIFC,
+  onClose, // eslint-disable-line no-unused-vars
 }) {
   const projNumber = marker?.project_number || "—";
   const projName = marker?.project_name || "";
@@ -83,6 +88,13 @@ export default function ProjectBar({
   const issuesCount = scan
     ? (scan.missing_dwg.length + scan.orphan_dwg.length + scan.stale_pdf.length)
     : 0;
+
+  // Promote-to-IFC is only useful while at IFA. Hidden once at IFC or beyond.
+  const canPromote =
+    register?.current_phase === "IFA" ||
+    (register?.drawings || []).some(
+      (d) => (d.revisions || []).slice(-1)[0]?.phase === "IFA",
+    );
 
   return (
     <div
@@ -97,8 +109,30 @@ export default function ProjectBar({
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-        <div style={{ fontFamily: T.fMono, fontSize: 13, color: T.acc, letterSpacing: "0.02em" }}>
+        <div
+          style={{
+            fontFamily: T.fMono,
+            fontSize: 13,
+            color: T.acc,
+            letterSpacing: "0.02em",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
           {projNumber}
+          {dirty && (
+            <span
+              title="Unsaved changes"
+              style={{
+                color: T.warn,
+                fontSize: 14,
+                lineHeight: 1,
+              }}
+            >
+              ●
+            </span>
+          )}
         </div>
         <div style={{ fontFamily: T.fDisp, fontSize: 18, color: T.t1, letterSpacing: "-0.01em" }}>
           {projName || "Untitled"}
@@ -139,13 +173,24 @@ export default function ProjectBar({
           </Btn>
         ) : (
           <>
-            <Btn ghost disabled title="Coming next slice">
-              Add drawing
+            {canPromote && (
+              <Btn
+                ghost
+                onClick={onPromoteToIFC}
+                title="Add IFC Rev 0 to every drawing whose latest rev is IFA"
+              >
+                Promote to IFC
+              </Btn>
+            )}
+            <Btn
+              primary
+              disabled={!dirty || saving}
+              onClick={onSave}
+              title={dirty ? "Save register and regenerate Excel" : "No unsaved changes"}
+            >
+              {saving ? "Saving…" : "Save"}
             </Btn>
-            <Btn disabled title="Read-only slice">
-              Save
-            </Btn>
-            <Btn primary disabled title="Read-only slice">
+            <Btn disabled title="Standalone export — coming next slice">
               Export
             </Btn>
           </>

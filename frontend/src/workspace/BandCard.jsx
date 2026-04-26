@@ -35,6 +35,7 @@ export default function BandCard({
   onToggleSelect,
   orderedIds,
   focused,
+  onAddInBand,
 }) {
   const activeCount = drawings.filter((d) => (d.revisions || []).length > 0).length;
   const total = band.start != null ? band.end - band.start + 1 : drawings.length;
@@ -132,21 +133,26 @@ export default function BandCard({
         <span>↳ next free {nextFree}</span>
         <button
           type="button"
-          disabled
-          title="Coming next slice"
+          disabled={!onAddInBand || band.start == null}
+          onClick={onAddInBand}
+          title={
+            band.start == null
+              ? "Cannot add into an unbanded group"
+              : `Add a new drawing in ${band.label}`
+          }
           style={{
             marginLeft: "auto",
             padding: "5px 10px",
             background: "transparent",
-            border: `1px dashed ${T.bdSoft}`,
+            border: `1px dashed ${onAddInBand && band.start != null ? T.acc : T.bdSoft}`,
             borderRadius: T.rSm,
-            color: T.t3,
+            color: onAddInBand && band.start != null ? T.acc : T.t3,
             fontFamily: T.fMono,
             fontSize: 10,
             letterSpacing: "0.06em",
             textTransform: "uppercase",
-            cursor: "not-allowed",
-            opacity: 0.6,
+            cursor: onAddInBand && band.start != null ? "pointer" : "not-allowed",
+            opacity: onAddInBand && band.start != null ? 1 : 0.6,
           }}
         >
           + Add in this band

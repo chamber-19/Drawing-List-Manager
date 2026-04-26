@@ -29,7 +29,21 @@ async function post(path, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(`POST ${path} failed: ${r.status}`);
+  if (!r.ok) {
+    // Try to surface the structured error detail from the backend.
+    let detail = null;
+    try {
+      detail = await r.json();
+    } catch {
+      /* ignore non-JSON error bodies */
+    }
+    const err = new Error(
+      `POST ${path} failed: ${r.status}${detail?.detail?.message ? ` — ${detail.detail.message}` : ""}`,
+    );
+    err.status = r.status;
+    err.detail = detail?.detail ?? detail;
+    throw err;
+  }
   return r.json();
 }
 
@@ -42,4 +56,13 @@ export const api = {
     post("/api/project/scan", { marker_path: markerPath }),
   validateRegister: (markerPath) =>
     get(`/api/register/validate?marker_path=${encodeURIComponent(markerPath)}`),
+  saveRegister: (markerPath, register) =>
+    post("/api/register/save", { marker_path: markerPath, register }),
+  createProject: (folder, projectNumber, projectName = "", paths = {}) =>
+    post("/api/project/create", {
+      folder,
+      project_number: projectNumber,
+      project_name: projectName,
+      paths,
+    }),
 };

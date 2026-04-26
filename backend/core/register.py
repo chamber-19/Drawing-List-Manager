@@ -1,9 +1,9 @@
 """
 core/register.py — JSON register model + open/save helpers.
 
-Register shape (schema_version 2):
+Register shape (schema_version 3):
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "project_number": "R3P-25074",
   "project_name": "Optional descriptive name",
   "current_phase": "IFA",
@@ -15,6 +15,7 @@ Register shape (schema_version 2):
       "set": "P&C",
       "status": "READY FOR SUBMITTAL",
       "notes": null,
+      "superseded": false,
       "revisions": [
         {"rev": "A", "date": "2025-10-17", "phase": "IFA", "percent": 30},
         {"rev": "0", "date": "2026-01-10", "phase": "IFC", "percent": null}
@@ -32,6 +33,8 @@ Validation rules:
     digits (``^\\d+$``).
   - Revisions array is chronological — each entry's date >= previous date.
   - When phase transitions IFA → IFC, the next rev MUST be ``"0"``.
+  - ``superseded`` (v3): MUST be a boolean if present; defaults to False
+    on read if missing.
 """
 
 from __future__ import annotations
@@ -43,7 +46,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 VALID_SETS = {"P&C", "Physicals"}
 
@@ -155,6 +158,13 @@ def validate_register(reg: dict) -> list[str]:
         set_val = drawing.get("set")
         if set_val not in VALID_SETS:
             errors.append(f"{prefix} invalid set '{set_val}'. Must be one of {sorted(VALID_SETS)}.")
+
+        # Validate superseded — MUST be a bool if present (missing is OK,
+        # treated as False on read).
+        if "superseded" in drawing and not isinstance(drawing["superseded"], bool):
+            errors.append(
+                f"{prefix} 'superseded' must be a boolean (got {type(drawing['superseded']).__name__})."
+            )
 
         # Validate revisions
         revisions = drawing.get("revisions", [])

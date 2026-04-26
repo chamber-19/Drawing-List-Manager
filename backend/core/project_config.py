@@ -98,6 +98,12 @@ def create_project(
 
     os.makedirs(folder, exist_ok=True)
 
+    marker_path = os.path.join(folder, MARKER_FILENAME)
+    if os.path.exists(marker_path):
+        raise FileExistsError(
+            f"A project marker already exists at {marker_path}; refusing to overwrite."
+        )
+
     register_filename = f"{project_number}.r3pdrawings.json"
     register_path = os.path.join(folder, register_filename)
 
@@ -115,7 +121,6 @@ def create_project(
         "paths": merged_paths,
     }
 
-    marker_path = os.path.join(folder, MARKER_FILENAME)
     with open(marker_path, "w", encoding="utf-8") as fh:
         json.dump(marker, fh, indent=2, ensure_ascii=False)
 

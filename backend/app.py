@@ -100,7 +100,11 @@ def api_create_project(req: CreateProjectRequest):
             project_name=req.project_name,
             paths=req.paths or {},
         )
-        return {"success": True, "marker": marker}
+        from core.project_config import MARKER_FILENAME
+        marker_path = os.path.abspath(os.path.join(req.folder, MARKER_FILENAME))
+        return {"success": True, "marker": marker, "marker_path": marker_path}
+    except FileExistsError as e:
+        raise HTTPException(409, str(e))
     except Exception as e:
         raise HTTPException(500, f"Failed to create project: {e}")
 
@@ -187,11 +191,28 @@ def api_save_register(req: SaveRegisterRequest):
         marker = read_marker(req.marker_path)
         register_file = marker.get("register_file", "")
         register_path = os.path.join(project_dir, register_file)
-        save_register(register_path, req.register)
+
+        # Strip transient _parsed fields if the frontend forgot to.
+        register = req.register
+        for d in register.get("drawings", []):
+            d.pop("_parsed", None)
+
+        # Validate before writing. Reject with a useful error list rather
+        # than persist a broken register.
+        errors = validate_register(register)
+        if errors:
+            raise HTTPException(
+                400,
+                detail={"message": "Register validation failed", "errors": errors},
+            )
+
+        save_register(register_path, register)
         # Regenerate Excel alongside the register file.
         xlsx_path = register_path.replace(".r3pdrawings.json", ".xlsx")
-        export_full(xlsx_path, req.register)
+        export_full(xlsx_path, register)
         return {"success": True}
+    except HTTPException:
+        raise
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
     except Exception as e:

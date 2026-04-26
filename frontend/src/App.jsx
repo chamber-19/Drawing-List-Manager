@@ -1,7 +1,7 @@
 // App root — owns the "which view" decision (landing vs project) and
 // injects shared CSS at mount.
 
-import { Component, useEffect, useState } from "react";
+import { Component, useEffect, useRef, useState } from "react";
 import { CSS } from "./styles.js";
 import { T } from "./tokens.js";
 import LandingView from "./views/LandingView.jsx";
@@ -138,6 +138,10 @@ export default function App() {
     }
   });
 
+  // ProjectView registers a close-request gate here so the back button
+  // in <Header> can route through the unsaved-changes confirmation.
+  const closeGateRef = useRef(null);
+
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = CSS;
@@ -154,6 +158,15 @@ export default function App() {
     }
   }, [activeMarkerPath]);
 
+  function requestClose() {
+    const gate = closeGateRef.current;
+    if (gate) {
+      gate(() => setActiveMarkerPath(null));
+    } else {
+      setActiveMarkerPath(null);
+    }
+  }
+
   return (
     <div
       style={{
@@ -164,7 +177,7 @@ export default function App() {
         color: T.t1,
       }}
     >
-      <Header onClose={() => setActiveMarkerPath(null)} hasProject={!!activeMarkerPath} />
+      <Header onClose={requestClose} hasProject={!!activeMarkerPath} />
       <main style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <ErrorBoundary>
           {activeMarkerPath ? (
@@ -172,6 +185,9 @@ export default function App() {
               key={activeMarkerPath}
               markerPath={activeMarkerPath}
               onClose={() => setActiveMarkerPath(null)}
+              registerCloseGate={(fn) => {
+                closeGateRef.current = fn;
+              }}
             />
           ) : (
             <LandingView onOpen={setActiveMarkerPath} />

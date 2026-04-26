@@ -42,4 +42,18 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   background: ${T.accGlow};
   border-color: ${T.acc} !important;
 }
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dlm-row-flash {
+  0%   { background: ${T.accSoft}; }
+  100% { background: transparent; }
+}
+
+.dlm-row-flash {
+  animation: dlm-row-flash 1.2s ease-out;
+}
 `;

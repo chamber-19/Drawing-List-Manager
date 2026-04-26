@@ -25,7 +25,8 @@ class TestMigrateV1ToV2:
     def test_schema_version_bumped(self):
         v1 = load_fixture("sample_v1_register.json")
         v2 = migrate_register(v1)
-        assert v2["schema_version"] == 2
+        # Migration chains v1 → v2 → v3 (current).
+        assert v2["schema_version"] == 3
 
     def test_drawings_flattened(self):
         v1 = load_fixture("sample_v1_register.json")
@@ -92,16 +93,16 @@ class TestMigrateV1ToV2:
         assert v2["project_name"] == "Sample Project"
 
     def test_idempotent_on_v2(self):
-        """migrate_register should not alter an already-v2 register."""
+        """migrate_register on a v2 register chains through to v3."""
         v2_original = load_fixture("sample_v2_register.json")
-        v2_again = migrate_register(v2_original)
-        # schema_version unchanged
-        assert v2_again["schema_version"] == 2
+        result = migrate_register(v2_original)
+        # v2 input now chains to v3 (current).
+        assert result["schema_version"] == 3
         # drawing count unchanged
-        assert len(v2_again["drawings"]) == len(v2_original["drawings"])
+        assert len(result["drawings"]) == len(v2_original["drawings"])
 
     def test_fixture_match(self):
-        """Migrated v1 fixture must equal the v2 fixture (ignoring updated_at)."""
+        """Migrated v1 fixture must equal the v2 fixture's drawings (ignoring schema bump to v3)."""
         v1 = load_fixture("sample_v1_register.json")
         v2_expected = load_fixture("sample_v2_register.json")
         v2_actual = migrate_register(v1)
@@ -110,7 +111,8 @@ class TestMigrateV1ToV2:
         v2_actual.pop("updated_at", None)
         v2_expected.pop("updated_at", None)
 
-        assert v2_actual["schema_version"] == v2_expected["schema_version"]
+        # Migration chains v1 → v2 → v3 (current).
+        assert v2_actual["schema_version"] == 3
         assert v2_actual["project_number"] == v2_expected["project_number"]
         assert v2_actual["current_phase"] == v2_expected["current_phase"]
 
@@ -129,3 +131,60 @@ class TestMigrateV1ToV2:
             ):
                 assert a_rev["rev"] == e_rev["rev"], f"{dn} rev[{i}]: rev mismatch"
                 assert a_rev["phase"] == e_rev["phase"], f"{dn} rev[{i}]: phase mismatch"
+
+
+class TestMigrateV2ToV3:
+    def test_superseded_added_to_all_drawings(self):
+        v2 = load_fixture("sample_v2_register.json")
+        v3 = migrate_register(v2)
+        assert v3["schema_version"] == 3
+        for d in v3["drawings"]:
+            assert d.get("superseded") is False
+
+    def test_existing_superseded_field_preserved(self):
+        v2 = load_fixture("sample_v2_register.json")
+        # Pre-flag one drawing as superseded.
+        v2["drawings"][0]["superseded"] = True
+        v3 = migrate_register(v2)
+        assert v3["drawings"][0]["superseded"] is True
+        # Other drawings still get the default False.
+        for d in v3["drawings"][1:]:
+            assert d["superseded"] is False
+
+    def test_idempotent_on_v3(self):
+        v3_in = load_fixture("sample_v3_register.json")
+        v3_out = migrate_register(v3_in)
+        assert v3_out["schema_version"] == 3
+        assert len(v3_out["drawings"]) == len(v3_in["drawings"])
+        for d in v3_out["drawings"]:
+            assert d["superseded"] is False
+
+    def test_chain_v1_to_v3(self):
+        """v1 fixture migrates cleanly through the chain to v3."""
+        v1 = load_fixture("sample_v1_register.json")
+        v3 = migrate_register(v1)
+        assert v3["schema_version"] == 3
+        # Every drawing in the migrated register has superseded: False.
+        for d in v3["drawings"]:
+            assert d.get("superseded") is False
+            # Drawings still have the v2-introduced set/status fields.
+            assert d["set"] in {"P&C", "Physicals"}
+
+    def test_fixture_match_v3(self):
+        """Migrated v2 fixture must equal the v3 fixture (modulo updated_at)."""
+        v2 = load_fixture("sample_v2_register.json")
+        v3_expected = load_fixture("sample_v3_register.json")
+        v3_actual = migrate_register(v2)
+
+        v3_actual.pop("updated_at", None)
+        v3_expected.pop("updated_at", None)
+
+        assert v3_actual["schema_version"] == v3_expected["schema_version"]
+        actual_map = {d["drawing_number"]: d for d in v3_actual["drawings"]}
+        expected_map = {d["drawing_number"]: d for d in v3_expected["drawings"]}
+        assert set(actual_map.keys()) == set(expected_map.keys())
+        for dn, expected_d in expected_map.items():
+            actual_d = actual_map[dn]
+            assert actual_d["superseded"] == expected_d["superseded"], f"{dn}: superseded mismatch"
+            assert actual_d["set"] == expected_d["set"], f"{dn}: set mismatch"
+            assert actual_d["status"] == expected_d["status"], f"{dn}: status mismatch"

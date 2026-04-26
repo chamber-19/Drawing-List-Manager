@@ -1,11 +1,21 @@
-// Bottom-docked inspector. Shows single-drawing details on size === 1,
-// bulk summary + disabled action buttons on size > 1, hidden on size === 0.
+// Bottom-docked inspector. Shows single-drawing details on size === 1
+// (now editable: description, notes, status, set + Mark superseded),
+// bulk summary + working action buttons on size > 1, hidden on size === 0.
 
 import { useEffect } from "react";
 import { T } from "../tokens.js";
 import { StatusGlyph } from "./glyphs.jsx";
+import EditableField from "./EditableField.jsx";
 
-function Section({ label, children }) {
+const STATUSES = [
+  "NOT CREATED YET",
+  "IN DESIGN",
+  "READY FOR DRAFTING",
+  "READY FOR SUBMITTAL",
+];
+const SETS = ["P&C", "Physicals"];
+
+function Section({ label, children, action }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <div
@@ -16,9 +26,12 @@ function Section({ label, children }) {
           textTransform: "uppercase",
           color: T.t3,
           marginBottom: 4,
+          display: "flex",
+          alignItems: "center",
         }}
       >
-        {label}
+        <span>{label}</span>
+        {action && <span style={{ marginLeft: "auto" }}>{action}</span>}
       </div>
       <div style={{ color: T.t1 }}>{children}</div>
     </div>
@@ -81,16 +94,46 @@ function FileCard({ kind, files, color }) {
   );
 }
 
-function SingleInspector({ drawing, scan }) {
+function compactSelect(value, onChange, options) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{
+        background: T.bg,
+        border: `1px solid ${T.bd}`,
+        color: T.t1,
+        padding: "4px 8px",
+        borderRadius: T.rSm,
+        font: "inherit",
+        fontSize: 12,
+        outline: "none",
+      }}
+    >
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function SingleInspector({ drawing, scan, onUpdateField, onMarkSuperseded }) {
   const cur = (drawing.revisions || [])[drawing.revisions.length - 1];
+  const dn = drawing.drawing_number;
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, height: "100%" }}>
       <div style={{ overflowY: "auto", paddingRight: 12 }}>
         <Section label="Drawing">
-          <div style={{ fontFamily: T.fMono, color: T.acc, fontSize: 14 }}>
-            {drawing.drawing_number}
+          <div style={{ fontFamily: T.fMono, color: T.acc, fontSize: 14 }}>{dn}</div>
+          <div style={{ marginTop: 4 }}>
+            <EditableField
+              value={drawing.description}
+              onCommit={(v) => onUpdateField(dn, { description: v })}
+              placeholder="(no description)"
+            />
           </div>
-          <div style={{ marginTop: 4 }}>{drawing.description}</div>
         </Section>
         <Section label="Band">
           <span style={{ color: T.t2, fontFamily: T.fMono, fontSize: 12 }}>
@@ -102,8 +145,11 @@ function SingleInspector({ drawing, scan }) {
         <Section label="Status">
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <StatusGlyph status={drawing.status} />
-            <span>{drawing.status}</span>
+            {compactSelect(drawing.status, (v) => onUpdateField(dn, { status: v }), STATUSES)}
           </span>
+        </Section>
+        <Section label="Set">
+          {compactSelect(drawing.set, (v) => onUpdateField(dn, { set: v }), SETS)}
         </Section>
         <Section label="Current revision">
           {cur ? (
@@ -115,11 +161,14 @@ function SingleInspector({ drawing, scan }) {
             <span style={{ fontStyle: "italic", color: T.t4 }}>No revisions yet</span>
           )}
         </Section>
-        {drawing.notes && (
-          <Section label="Notes">
-            <div style={{ color: T.t2 }}>{drawing.notes}</div>
-          </Section>
-        )}
+        <Section label="Notes">
+          <EditableField
+            value={drawing.notes || ""}
+            onCommit={(v) => onUpdateField(dn, { notes: v.trim() ? v : null })}
+            placeholder="(no notes — click to add)"
+            multiline
+          />
+        </Section>
         <Section label={`Revision history (${(drawing.revisions || []).length})`}>
           {(drawing.revisions || []).length === 0 ? (
             <span style={{ fontStyle: "italic", color: T.t4 }}>—</span>
@@ -146,17 +195,61 @@ function SingleInspector({ drawing, scan }) {
             </div>
           )}
         </Section>
+        {drawing.superseded && (
+          <Section label="Status flag">
+            <span
+              style={{
+                fontFamily: T.fMono,
+                fontSize: 11,
+                color: T.warn,
+                padding: "2px 8px",
+                border: `1px solid ${T.warn}`,
+                borderRadius: T.rSm,
+              }}
+            >
+              SUPERSEDED
+            </span>
+          </Section>
+        )}
+        {!drawing.superseded && (
+          <button
+            type="button"
+            onClick={() => onMarkSuperseded([dn])}
+            style={{
+              marginTop: 4,
+              padding: "6px 12px",
+              background: "transparent",
+              border: `1px solid ${T.bdSoft}`,
+              color: T.t2,
+              borderRadius: T.rSm,
+              fontFamily: T.fMono,
+              fontSize: 11,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+            }}
+          >
+            Mark superseded…
+          </button>
+        )}
       </div>
       <div style={{ overflowY: "auto", paddingLeft: 12, borderLeft: `1px solid ${T.bdSoft}` }}>
         <Section label="Files on disk">
-          <FilesGrid dn={drawing.drawing_number} scan={scan} />
+          <FilesGrid dn={dn} scan={scan} />
         </Section>
       </div>
     </div>
   );
 }
 
-function BulkInspector({ drawings, scan, onClear }) {
+function BulkInspector({
+  drawings,
+  scan,
+  onClear,
+  onAdvanceRev,
+  onSetStatus,
+  onMarkSuperseded,
+}) {
   const sets = new Set(drawings.map((d) => d.set));
   const statuses = new Set(drawings.map((d) => d.status));
   const phases = new Set(
@@ -182,30 +275,30 @@ function BulkInspector({ drawings, scan, onClear }) {
     );
   }
 
-  function ActionBtn({ children }) {
+  function ActionBtn({ children, onClick, danger }) {
     return (
       <button
         type="button"
-        disabled
-        title="Coming next slice"
+        onClick={onClick}
         style={{
           padding: "8px 14px",
-          border: `1px solid ${T.bd}`,
+          border: `1px solid ${danger ? T.err : T.bd}`,
           borderRadius: T.rSm,
           background: T.bgEl,
-          color: T.t2,
+          color: danger ? T.err : T.t1,
           fontFamily: T.fMono,
           fontSize: 11,
           letterSpacing: "0.05em",
           textTransform: "uppercase",
-          cursor: "not-allowed",
-          opacity: 0.55,
+          cursor: "pointer",
         }}
       >
         {children}
       </button>
     );
   }
+
+  const targets = drawings.map((d) => d.drawing_number);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, height: "100%" }}>
@@ -247,21 +340,39 @@ function BulkInspector({ drawings, scan, onClear }) {
           Bulk actions
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "stretch" }}>
-          <ActionBtn>Advance to next rev</ActionBtn>
-          <ActionBtn>Set status…</ActionBtn>
-          <ActionBtn>Promote to IFC</ActionBtn>
-          <ActionBtn>Mark superseded</ActionBtn>
+          <ActionBtn onClick={onAdvanceRev}>Advance to next rev…</ActionBtn>
+          <ActionBtn onClick={onSetStatus}>Set status…</ActionBtn>
+          <ActionBtn danger onClick={() => onMarkSuperseded(targets)}>
+            Mark superseded…
+          </ActionBtn>
         </div>
       </div>
     </div>
   );
 }
 
-export default function Inspector({ register, selection, scan, onClear }) {
+export default function Inspector({
+  register,
+  selection,
+  scan,
+  onClear,
+  onUpdateField,
+  onMarkSuperseded,
+  onAdvanceRev,
+  onSetStatus,
+}) {
   // Escape clears selection.
   useEffect(() => {
     function onKey(e) {
-      if (e.key === "Escape") onClear();
+      if (e.key === "Escape") {
+        // Don't steal focus from inputs / modals — only clear if focus
+        // is on the body or a non-text element.
+        const t = document.activeElement;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) {
+          return;
+        }
+        onClear();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -285,9 +396,21 @@ export default function Inspector({ register, selection, scan, onClear }) {
       }}
     >
       {drawings.length === 1 ? (
-        <SingleInspector drawing={drawings[0]} scan={scan} />
+        <SingleInspector
+          drawing={drawings[0]}
+          scan={scan}
+          onUpdateField={onUpdateField}
+          onMarkSuperseded={onMarkSuperseded}
+        />
       ) : (
-        <BulkInspector drawings={drawings} scan={scan} onClear={onClear} />
+        <BulkInspector
+          drawings={drawings}
+          scan={scan}
+          onClear={onClear}
+          onAdvanceRev={onAdvanceRev}
+          onSetStatus={onSetStatus}
+          onMarkSuperseded={onMarkSuperseded}
+        />
       )}
     </div>
   );

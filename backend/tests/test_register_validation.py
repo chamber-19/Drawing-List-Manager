@@ -12,7 +12,7 @@ from core.register import validate_register
 def _draw(revisions):
     """Build a single-drawing register with the given revisions."""
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "project_number": "R3P-25074",
         "drawings": [{
             "drawing_number": "R3P-25074-E6-0001",
@@ -20,6 +20,7 @@ def _draw(revisions):
             "set": "P&C",
             "status": "IN DESIGN",
             "notes": None,
+            "superseded": False,
             "revisions": revisions,
         }],
     }
@@ -91,3 +92,21 @@ class TestIFAFormat:
         ])
         errors = validate_register(reg)
         assert any("uppercase letters" in e for e in errors)
+
+
+class TestSuperseded:
+    def test_superseded_true_passes(self):
+        reg = _draw([])
+        reg["drawings"][0]["superseded"] = True
+        assert validate_register(reg) == []
+
+    def test_superseded_invalid_type_errors(self):
+        reg = _draw([])
+        reg["drawings"][0]["superseded"] = "yes"
+        errors = validate_register(reg)
+        assert any("superseded" in e and "boolean" in e for e in errors)
+
+    def test_superseded_missing_treated_as_valid(self):
+        reg = _draw([])
+        reg["drawings"][0].pop("superseded", None)
+        assert validate_register(reg) == []

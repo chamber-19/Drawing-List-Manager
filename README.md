@@ -2,7 +2,7 @@
 
 A standalone Tauri desktop application for managing project drawing registers at ROOT3POWER ENGINEERING. This is one of the tools in the ROOT3POWER tool family.
 
-> **Status:** Slice 1 — read-only workspace + reconcile. Workspace UI shell, type-band navigation, drawing inspector, and register-vs-disk reconcile view are live; mutations (add / edit / save / promote) are flagged as "Coming next slice" and disabled.
+> **Status:** Slice 2 — editing unlocked. Workspace UI now supports add / edit / advance-rev / set-status / mark-superseded / promote-to-IFC / save, with backend validation surfacing structured errors. Schema v3 adds the `superseded` flag with auto-migration from v1 / v2.
 
 ---
 
@@ -13,7 +13,7 @@ Drawing-List-Manager/
 ├── backend/                   Python FastAPI service (port 8001)
 │   ├── app.py                 All API routes
 │   ├── core/
-│   │   ├── register.py        JSON register model (schema v2) + open/save helpers
+│   │   ├── register.py        JSON register model (schema v3) + open/save helpers
 │   │   ├── migration.py       v1 → v2 auto-migration on open
 │   │   ├── drawing_number.py  Drawing number parser / validator
 │   │   ├── project_config.py  Per-project marker + recent-list management
@@ -117,11 +117,11 @@ All mutating affordances (`Add drawing`, `Save`, `Export`, `Promote to IFC`, the
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/health` | Health check — returns `{"status":"ok","version":"1.0.0"}` |
-| POST | `/api/project/create` | `{folder, project_number, project_name, paths}` → writes marker + empty register |
-| POST | `/api/project/open` | `{marker_path}` → reads marker + register (auto-migrates v1); each drawing is annotated with a transient `_parsed` field carrying `{discipline, type_digit, seq, band}` derived from the drawing number. The leading underscore signals "view-only, not persisted" |
+| POST | `/api/project/create` | `{folder, project_number, project_name, paths}` → writes marker + empty register. Returns `{marker, marker_path}`. Rejects with **409** if a `.r3p-project.json` already exists in the folder |
+| POST | `/api/project/open` | `{marker_path}` → reads marker + register (auto-migrates v1 → v2 → v3); each drawing is annotated with a transient `_parsed` field carrying `{discipline, type_digit, seq, band}` derived from the drawing number. The leading underscore signals "view-only, not persisted" |
 | POST | `/api/project/scan` | `{marker_path}` → walks the project's `drawings_dir` and `pdfs_dir` and returns a structured diff (`missing_dwg`, `orphan_dwg`, `orphan_pdf`, `stale_pdf`) plus the raw file inventory |
 | GET | `/api/project/recent` | Returns recent-projects list |
-| POST | `/api/register/save` | `{marker_path, register}` → saves + regenerates Excel |
+| POST | `/api/register/save` | `{marker_path, register}` → validates, saves + regenerates Excel. Strips transient `_parsed` fields before persisting. Rejects with **400** and `{detail: {message, errors}}` if the register fails validation; the existing register file is left untouched |
 | POST | `/api/register/import-excel` | `{marker_path, xlsx_path}` → one-time legacy MDL import |
 | GET | `/api/register/validate` | `?marker_path=...` → returns validation warnings |
 

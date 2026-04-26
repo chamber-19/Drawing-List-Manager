@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { T } from "../tokens.js";
+import CreateProjectModal from "../workspace/modals/CreateProjectModal.jsx";
 
 async function pickMarkerFile() {
   // Use the Tauri dialog plugin to let the user pick the .r3p-project.json
@@ -53,6 +54,7 @@ function ActionCard({ title, subtitle, onClick, disabled, tooltip }) {
 export default function LandingView({ onOpen }) {
   const [recent, setRecent] = useState([]);
   const [error, setError] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     api.recent().then((r) => setRecent(r.recent || [])).catch((e) => setError(e.message));
@@ -61,6 +63,12 @@ export default function LandingView({ onOpen }) {
   async function handleOpen() {
     const path = await pickMarkerFile();
     if (path) onOpen(path);
+  }
+
+  async function handleCreate({ folder, project_number, project_name }) {
+    const result = await api.createProject(folder, project_number, project_name);
+    setCreateOpen(false);
+    if (result?.marker_path) onOpen(result.marker_path);
   }
 
   return (
@@ -104,10 +112,15 @@ export default function LandingView({ onOpen }) {
         <ActionCard
           title="Create project"
           subtitle="Start a new project register."
-          disabled
-          tooltip="Coming next slice"
+          onClick={() => setCreateOpen(true)}
         />
       </div>
+
+      <CreateProjectModal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreate={handleCreate}
+      />
 
       <div>
         <div
