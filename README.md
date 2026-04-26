@@ -2,7 +2,7 @@
 
 A standalone Tauri desktop application for managing project drawing registers at ROOT3POWER ENGINEERING. This is one of the tools in the ROOT3POWER tool family.
 
-> **Status:** Framework migrated, UI in progress — consuming `@chamber-19/desktop-toolkit` v2.3.0; schema flip to flat v2 shape complete; UI screens come in a follow-up PR.
+> **Status:** Slice 1 — read-only workspace + reconcile. Workspace UI shell, type-band navigation, drawing inspector, and register-vs-disk reconcile view are live; mutations (add / edit / save / promote) are flagged as "Coming next slice" and disabled.
 
 ---
 
@@ -100,13 +100,26 @@ The register file (`.r3pdrawings.json`) uses a flat `drawings[]` list:
 
 ---
 
+## Workspace UI
+
+Slice 1 ships a read-only workspace organised around three view tabs:
+
+- **Drawings** — three-zone shell: type-band tree on the left, banded card list in the middle, bottom-docked inspector that shows per-drawing details on single selection or a summary grid + disabled bulk-action buttons on multi-select. Shift-click extends a range; Cmd/Ctrl-click toggles individual rows; Escape clears.
+- **Reconcile** — three cards diffing the register against the project's on-disk DWG and PDF folders: drawings present in the register but missing a DWG, files on disk with no register entry, and PDFs whose rev label is behind the register's current rev. Each row is clickable and jumps back to the drawings tab with the matching band selected.
+- **Export** — placeholder; lights up in the next slice.
+
+All mutating affordances (`Add drawing`, `Save`, `Export`, `Promote to IFC`, the four bulk-action buttons, project `Create`) render but are disabled with a "Coming next slice" tooltip — the slice 1 boundary is intentionally read-only so the navigation primitives are exercised before mutation lands.
+
+---
+
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/health` | Health check — returns `{"status":"ok","version":"1.0.0"}` |
 | POST | `/api/project/create` | `{folder, project_number, project_name, paths}` → writes marker + empty register |
-| POST | `/api/project/open` | `{marker_path}` → reads marker + register (auto-migrates v1) |
+| POST | `/api/project/open` | `{marker_path}` → reads marker + register (auto-migrates v1); each drawing is annotated with a transient `_parsed` field carrying `{discipline, type_digit, seq, band}` derived from the drawing number. The leading underscore signals "view-only, not persisted" |
+| POST | `/api/project/scan` | `{marker_path}` → walks the project's `drawings_dir` and `pdfs_dir` and returns a structured diff (`missing_dwg`, `orphan_dwg`, `orphan_pdf`, `stale_pdf`) plus the raw file inventory |
 | GET | `/api/project/recent` | Returns recent-projects list |
 | POST | `/api/register/save` | `{marker_path, register}` → saves + regenerates Excel |
 | POST | `/api/register/import-excel` | `{marker_path, xlsx_path}` → one-time legacy MDL import |

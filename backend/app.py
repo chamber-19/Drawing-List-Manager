@@ -5,6 +5,7 @@ Routes:
     GET  /api/health                    Health check
     POST /api/project/create            Create new project folder + marker
     POST /api/project/open              Read project marker + register
+    POST /api/project/scan              Diff register against on-disk DWG/PDF files
     GET  /api/project/recent            Return recent-projects list
     POST /api/register/save             Write a register to disk + regenerate Excel
     POST /api/register/import-excel     One-time legacy MDL import
@@ -33,6 +34,9 @@ from core.project_config import (
     add_recent,
     list_recent,
 )
+from core.project_scan import scan_project
+from core.drawing_number import parse as parse_drawing_number, DrawingNumberError
+from core.standards import find_band
 
 
 # ─── App Setup ────────────────────────────────────────────────
@@ -71,6 +75,10 @@ class OpenProjectRequest(BaseModel):
     marker_path: str
 
 
+class ScanProjectRequest(BaseModel):
+    marker_path: str
+
+
 class SaveRegisterRequest(BaseModel):
     marker_path: str
     register: dict[str, Any]
@@ -105,12 +113,61 @@ def api_open_project(req: OpenProjectRequest):
         register_file = marker.get("register_file", "")
         register_path = os.path.join(project_dir, register_file)
         register = open_register(register_path)
+        # NOTE: mutates `register` in place — adds a transient `_parsed`
+        # field to each drawing for view-only consumption.
+        _enrich_drawings_with_parsed(register)
         add_recent(req.marker_path)
-        return {"success": True, "marker": marker, "register": register}
+        return {
+            "success": True,
+            "marker": marker,
+            "marker_path": os.path.abspath(req.marker_path),
+            "register": register,
+        }
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
     except Exception as e:
         raise HTTPException(500, f"Failed to open project: {e}")
+
+
+@app.post("/api/project/scan")
+def api_scan_project(req: ScanProjectRequest):
+    """Walk the project's configured directories and diff against register."""
+    try:
+        marker = read_marker(req.marker_path)
+        project_dir = os.path.dirname(os.path.abspath(req.marker_path))
+        register_file = marker.get("register_file", "")
+        register_path = os.path.join(project_dir, register_file)
+        register = open_register(register_path)
+        return scan_project(marker, req.marker_path, register)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Failed to scan project: {e}")
+
+
+def _enrich_drawings_with_parsed(register: dict[str, Any]) -> None:
+    """Annotate each drawing with a transient ``_parsed`` field.
+
+    The leading underscore signals this is a computed, view-only field —
+    not part of the on-disk schema. ``save_register`` callers must strip
+    it before persisting (slice 2 problem).
+    """
+    for d in register.get("drawings", []):
+        try:
+            parsed = parse_drawing_number(d["drawing_number"])
+            seq_int = int(parsed.seq)
+            band = find_band(parsed.discipline, parsed.type, seq_int)
+            d["_parsed"] = {
+                "discipline": parsed.discipline,
+                "type_digit": parsed.type,
+                "seq": seq_int,
+                "band": (
+                    {"start": band.start, "end": band.end, "label": band.label}
+                    if band else None
+                ),
+            }
+        except (DrawingNumberError, KeyError, ValueError):
+            d["_parsed"] = None
 
 
 @app.get("/api/project/recent")
