@@ -74,6 +74,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The migration is append-only: do not modify the v1→v2 or v2→v3
   logic. Future schema changes chain a v3→v4 step.
 
+### Fixed
+
+- `backend/requirements.txt` now lists `httpx` and `pytest`. The
+  `tests/test_app.py` suite imports `fastapi.testclient.TestClient`,
+  which requires `httpx` at runtime; CI installs from `requirements.txt`
+  and was failing at test collection without it.
+
 ## [Slice 1]
 
 ### Added
