@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drawing List Manager — Workspace Sketch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1C1B19;
+    --bg-el: #252420;
+    --bg-card: #2C2B27;
+    --bg-card-hover: #34322D;
+    --bg-deep: #161513;
+    --bd: #3E3D38;
+    --bd-soft: #2F2E29;
+    --bd-strong: #4E4C46;
+    --t1: #F0ECE4;
+    --t2: #A39E93;
+    --t3: #736E64;
+    --t4: #4F4B43;
+    --t-on: #1C1B19;
+    --acc: #C4884D;
+    --acc-bright: #D69960;
+    --acc-soft: #C4884D22;
+    --acc-glow: #C4884D11;
+    --acc-dim: #8B5E33;
+    --ok: #6B9E6B;
+    --warn: #C4A24D;
+    --err: #B85C5C;
+    --info: #5C8EB8;
+    --f-body: 'DM Sans', system-ui, sans-serif;
+    --f-mono: 'JetBrains Mono', 'SF Mono', monospace;
+    --f-disp: 'Instrument Serif', Georgia, serif;
+    --r-sm: 4px;
+    --r: 6px;
+    --r-lg: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-deep);
+    color: var(--t1);
+    font-family: var(--f-body);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--acc); color: var(--t-on); }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--t3); }
+
+  /* Sketch wrapper */
+  .sketch-frame {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  .sketch-header {
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    padding: 0 4px 24px; margin-bottom: 24px;
+    border-bottom: 1px solid var(--bd-soft);
+  }
+  .sketch-title {
+    font-family: var(--f-disp); font-size: 30px; letter-spacing: -0.01em; font-style: italic;
+    color: var(--t1);
+  }
+  .sketch-subtitle {
+    font-family: var(--f-mono); font-size: 11px; color: var(--t3);
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .sketch-meta {
+    margin-left: auto; font-family: var(--f-mono); font-size: 10px;
+    color: var(--t4); letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .sketch-tabs {
+    display: flex; gap: 4px; margin-bottom: 28px;
+    background: var(--bg);
+    padding: 4px; border-radius: var(--r);
+    border: 1px solid var(--bd-soft);
+    width: fit-content;
+  }
+  .sketch-tab {
+    padding: 9px 18px; cursor: pointer;
+    background: transparent; border: none; color: var(--t2);
+    font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; font-weight: 500;
+    border-radius: var(--r-sm);
+    display: flex; align-items: center; gap: 8px;
+    transition: color .12s, background .12s;
+  }
+  .sketch-tab:hover { color: var(--t1); }
+  .sketch-tab.active {
+    color: var(--acc);
+    background: var(--acc-glow);
+  }
+  .sketch-tab .num {
+    color: var(--t4); font-weight: 400;
+    border: 1px solid var(--bd-soft);
+    padding: 2px 6px; border-radius: 3px; font-size: 9px;
+  }
+  .sketch-tab.active .num {
+    color: var(--acc); border-color: var(--acc-dim);
+  }
+
+  /* App window — emulates the Tauri main window */
+  .app-window {
+    background: var(--bg);
+    border: 1px solid var(--bd);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6),
+                0 1px 0 rgba(255,255,255,0.02) inset;
+    display: none;
+  }
+  .app-window.active { display: block; }
+
+  .titlebar {
+    height: 36px;
+    background: linear-gradient(180deg, #2A2925 0%, var(--bg-el) 100%);
+    border-bottom: 1px solid var(--bd);
+    display: flex; align-items: center; padding: 0 14px; gap: 8px;
+  }
+  .titlebar-dots { display: flex; gap: 6px; }
+  .titlebar-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--bd-soft); }
+  .titlebar-title {
+    flex: 1; text-align: center; font-family: var(--f-mono); font-size: 11px;
+    color: var(--t3); letter-spacing: 0.05em;
+  }
+
+  .app-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 24px; border-bottom: 1px solid var(--bd);
+    background: var(--bg-el);
+  }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--acc);
+    display: grid; place-items: center;
+    color: var(--t-on); font-family: var(--f-mono); font-weight: 700; font-size: 8px;
+    letter-spacing: 0.02em;
+  }
+  .app-name { font-family: var(--f-disp); font-size: 17px; letter-spacing: -0.01em; color: var(--t1); }
+  .app-tag {
+    font-family: var(--f-mono); font-size: 9px; color: var(--t3);
+    letter-spacing: 0.14em; text-transform: uppercase; margin-top: 2px;
+  }
+  .app-header .spacer { flex: 1; }
+  .header-meta {
+    font-family: var(--f-mono); font-size: 10px; color: var(--t3);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .header-pip {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ok); margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* ─── Project bar ──────────────────────────────────────────── */
+  .project-bar {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--bd-soft);
+    background: var(--bg);
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+    gap: 28px;
+    align-items: center;
+  }
+  .project-id {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .project-id .num {
+    font-family: var(--f-mono); font-size: 14px; color: var(--acc);
+    font-weight: 500; letter-spacing: -0.01em;
+  }
+  .project-id .name {
+    font-family: var(--f-disp); font-size: 18px; color: var(--t1);
+    letter-spacing: -0.01em; line-height: 1.1;
+  }
+  .project-stats {
+    display: flex; gap: 28px;
+  }
+  .stat-block {
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .stat-block .k {
+    font-family: var(--f-mono); font-size: 9px; color: var(--t4);
+    letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .stat-block .v {
+    font-family: var(--f-mono); font-size: 12px; color: var(--t1);
+    font-weight: 500;
+  }
+  .stat-block .v.accent { color: var(--acc); }
+  .phase-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 3px;
+    font-family: var(--f-mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    background: var(--acc-soft); color: var(--acc);
+    border: 1px solid var(--acc-dim);
+  }
+  .project-actions { display: flex; gap: 8px; align-items: center; }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--bd);
+    color: var(--t1);
+    padding: 6px 12px;
+    border-radius: var(--r);
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500;
+    cursor: pointer; transition: all .12s;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .btn:hover { border-color: var(--acc); color: var(--acc); }
+  .btn.primary {
+    background: var(--acc); border-color: var(--acc); color: var(--t-on);
+  }
+  .btn.primary:hover { background: var(--acc-bright); border-color: var(--acc-bright); }
+  .btn.ghost { border: none; color: var(--t2); }
+  .btn.ghost:hover { background: var(--bg-card); color: var(--acc); }
+  .btn.disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.disabled:hover { border-color: var(--bd); color: var(--t1); background: transparent; }
+  .btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+
+  /* Tab nav */
+  .view-tabs {
+    display: flex; padding: 0 24px;
+    border-bottom: 1px solid var(--bd);
+    background: var(--bg);
+  }
+  .view-tab {
+    padding: 11px 18px; cursor: pointer;
+    background: transparent; border: none; color: var(--t2);
+    font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; font-weight: 500;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    display: flex; align-items: center; gap: 8px;
+    transition: color .12s, border-color .12s;
+  }
+  .view-tab:hover { color: var(--t1); }
+  .view-tab.active { color: var(--acc); border-bottom-color: var(--acc); }
+  .view-tab .badge {
+    background: var(--acc-soft); color: var(--acc);
+    font-size: 9px; padding: 2px 6px; border-radius: 3px; letter-spacing: 0;
+    font-weight: 500;
+  }
+  .view-tab .badge.warn { background: rgba(196, 162, 77, 0.15); color: var(--warn); }
+
+  /* ─── Main split: nav tree + workspace ─────────────────── */
+  .workspace {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    min-height: 720px;
+  }
+  .nav-pane {
+    background: var(--bg-deep);
+    border-right: 1px solid var(--bd-soft);
+    padding: 18px 0 24px;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  .nav-section { padding: 0 16px; margin-bottom: 22px; }
+  .nav-section:last-child { margin-bottom: 0; }
+  .nav-section .h {
+    font-family: var(--f-mono); font-size: 9px; color: var(--t4);
+    letter-spacing: 0.18em; text-transform: uppercase; font-weight: 500;
+    margin-bottom: 8px; padding: 0 6px;
+  }
+
+  .nav-row {
+    display: grid;
+    grid-template-columns: 16px 1fr auto;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--t1);
+    transition: background .12s, color .12s;
+  }
+  .nav-row:hover { background: var(--bg-el); }
+  .nav-row.active {
+    background: var(--acc-glow);
+    color: var(--acc);
+  }
+  .nav-row .arrow {
+    color: var(--t3);
+    width: 14px; height: 14px;
+    display: grid; place-items: center;
+    font-family: var(--f-mono); font-size: 10px;
+  }
+  .nav-row.active .arrow { color: var(--acc); }
+  .nav-row.no-arrow .arrow { visibility: hidden; }
+  .nav-row .label {
+    font-family: var(--f-body); font-size: 12px;
+    color: inherit; line-height: 1.3;
+  }
+  .nav-row .label .type-code {
+    font-family: var(--f-mono); font-weight: 500;
+    color: var(--t2); margin-right: 6px;
+  }
+  .nav-row.active .label .type-code { color: var(--acc); }
+  .nav-row .count {
+    font-family: var(--f-mono); font-size: 10px;
+    color: var(--t3); font-weight: 400;
+    padding-left: 6px;
+  }
+  .nav-row.active .count { color: var(--acc); }
+  .nav-row.empty { opacity: 0.45; cursor: default; }
+
+  /* nested band rows */
+  .nav-band {
+    grid-template-columns: 12px 12px 1fr auto;
+    padding-left: 18px;
+    color: var(--t2);
+    font-size: 12px;
+  }
+  .nav-band .glyph {
+    width: 12px; height: 12px;
+    display: grid; place-items: center;
+  }
+  .nav-band .glyph::before {
+    content: '';
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--t4);
+  }
+  .nav-band.active {
+    background: var(--acc-soft);
+    color: var(--acc);
+    font-weight: 500;
+  }
+  .nav-band.active .glyph::before { background: var(--acc); }
+
+  /* status filter rows in nav */
+  .nav-status-row {
+    display: grid;
+    grid-template-columns: 16px 1fr auto;
+    gap: 8px; align-items: center;
+    padding: 5px 6px; cursor: pointer;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: background .12s;
+  }
+  .nav-status-row:hover { background: var(--bg-el); }
+  .nav-status-row.applied { background: var(--bg-el); }
+  .nav-status-row .glyph {
+    display: grid; place-items: center;
+  }
+  .nav-status-row .label {
+    font-size: 11.5px; color: var(--t1); font-family: var(--f-body);
+  }
+  .nav-status-row .count {
+    font-family: var(--f-mono); font-size: 10px; color: var(--t3);
+  }
+
+  /* status glyphs (SVG) */
+  .stat-glyph { display: inline-block; vertical-align: middle; }
+  .stat-glyph svg { display: block; }
+
+  /* ─── Workspace right pane ───────────────────────────── */
+  .work-pane {
+    padding: 22px 28px 32px;
+    overflow-y: auto;
+    background: var(--bg);
+  }
+  .work-head {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-bottom: 6px;
+  }
+  .work-head h2 {
+    font-family: var(--f-disp); font-size: 26px;
+    color: var(--t1); letter-spacing: -0.015em;
+    font-style: italic;
+  }
+  .work-head .crumb {
+    font-family: var(--f-mono); font-size: 11px;
+    color: var(--t3); letter-spacing: 0.08em;
+  }
+  .work-head .crumb .sep { color: var(--t4); margin: 0 6px; }
+  .work-head .crumb .seg.current { color: var(--acc); }
+  .work-sub {
+    font-family: var(--f-mono); font-size: 11px;
+    color: var(--t3); letter-spacing: 0.06em;
+    margin-bottom: 22px;
+  }
+
+  .work-toolbar {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .search {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-el); border: 1px solid var(--bd);
+    padding: 6px 12px; border-radius: var(--r); flex: 1; max-width: 320px;
+  }
+  .search:focus-within { border-color: var(--acc); }
+  .search svg { width: 13px; height: 13px; stroke: var(--t3); fill: none; stroke-width: 2; }
+  .search input {
+    background: none; border: none; outline: none; color: var(--t1);
+    font-family: var(--f-body); font-size: 13px; flex: 1;
+  }
+  .search input::placeholder { color: var(--t3); }
+  .work-toolbar .spacer { flex: 1; }
+  .toolbar-pill {
+    font-family: var(--f-mono); font-size: 10px;
+    color: var(--t2); letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 5px 10px; border: 1px solid var(--bd-soft);
+    border-radius: var(--r); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg-el);
+  }
+  .toolbar-pill.active {
+    color: var(--acc); border-color: var(--acc-dim);
+    background: var(--acc-glow);
+  }
+  .toolbar-pill .x { color: var(--t3); margin-left: 2px; }
+
+  /* ─── Band cards ─────────────────────────────────────── */
+  .band-card {
+    background: var(--bg-el);
+    border: 1px solid var(--bd-soft);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    margin-bottom: 18px;
+    transition: border-color .12s;
+  }
+  .band-card.focused {
+    border-color: var(--bd-strong);
+    box-shadow: 0 0 0 1px var(--bd-soft);
+  }
+
+  .band-head {
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--bd-soft);
+    display: grid;
+    grid-template-columns: auto auto 1fr auto auto;
+    gap: 14px;
+    align-items: center;
+    cursor: pointer;
+    background: linear-gradient(180deg, rgba(255,255,255,0.012) 0%, transparent 100%);
+  }
+  .band-head .seq-range {
+    font-family: var(--f-mono); font-size: 12px; font-weight: 500;
+    color: var(--acc); letter-spacing: -0.02em;
+  }
+  .band-head .dot { width: 3px; height: 3px; background: var(--t4); border-radius: 50%; }
+  .band-head .label {
+    font-family: var(--f-body); font-size: 14px; color: var(--t1);
+    font-weight: 500; letter-spacing: -0.005em;
+  }
+  .band-head .progress {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .band-head .progress .pct {
+    font-family: var(--f-mono); font-size: 11px; color: var(--t2);
+  }
+  .band-head .progress .bar {
+    width: 60px; height: 4px;
+    background: var(--bd-soft); border-radius: 2px; overflow: hidden;
+  }
+  .band-head .progress .bar .fill {
+    height: 100%; background: var(--acc); border-radius: 2px;
+  }
+  .band-head .count-frac {
+    font-family: var(--f-mono); font-size: 11px;
+    color: var(--t3); font-weight: 500;
+  }
+  .band-head .count-frac .num { color: var(--t1); }
+
+  .band-body { padding: 4px 0; }
+
+  .draw-row {
+    display: grid;
+    grid-template-columns: 24px 22px 200px 1fr 100px 160px;
+    gap: 14px;
+    align-items: center;
+    padding: 8px 18px;
+    border-bottom: 1px solid var(--bd-soft);
+    cursor: pointer;
+    transition: background .1s;
+    position: relative;
+  }
+  .draw-row:last-child { border-bottom: none; }
+  .draw-row:hover { background: var(--bg-card); }
+  .draw-row.selected {
+    background: var(--acc-glow);
+  }
+  .draw-row.selected::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 2px; background: var(--acc);
+  }
+  .draw-row .check {
+    width: 14px; height: 14px;
+    border: 1px solid var(--bd-strong); border-radius: 3px;
+    display: grid; place-items: center;
+    background: var(--bg);
+  }
+  .draw-row.selected .check {
+    background: var(--acc); border-color: var(--acc);
+  }
+  .draw-row.selected .check::before {
+    content: '';
+    width: 7px; height: 4px;
+    border-left: 1.5px solid var(--t-on);
+    border-bottom: 1.5px solid var(--t-on);
+    transform: rotate(-45deg) translate(1px, -1px);
+  }
+  .draw-row .stat-glyph {
+    display: grid; place-items: center;
+  }
+  .draw-row .num {
+    font-family: var(--f-mono); font-size: 12.5px; color: var(--acc);
+    font-weight: 500; letter-spacing: -0.01em;
+  }
+  .draw-row .desc {
+    font-size: 13px; color: var(--t1);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .draw-row .set-tag {
+    display: inline-block; padding: 2px 7px; border-radius: 3px;
+    font-family: var(--f-mono); font-size: 9px; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .set-tag.pc { background: rgba(196, 136, 77, 0.12); color: var(--acc); border: 1px solid rgba(196, 136, 77, 0.3); }
+  .set-tag.phys { background: rgba(92, 142, 184, 0.12); color: var(--info); border: 1px solid rgba(92, 142, 184, 0.3); }
+  .draw-row .rev {
+    font-family: var(--f-mono); font-size: 11px; color: var(--t1);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .draw-row .rev .pct { color: var(--t3); }
+  .draw-row .rev .ph { color: var(--acc); font-weight: 500; }
+  .draw-row .rev .date { color: var(--t4); margin-left: auto; font-size: 10px; }
+  .draw-row .rev.none { color: var(--t4); font-style: italic; font-weight: 400; }
+
+  .band-foot {
+    padding: 10px 18px 14px;
+    border-top: 1px solid var(--bd-soft);
+    display: flex; align-items: center; gap: 16px;
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.15) 100%);
+  }
+  .next-free {
+    font-family: var(--f-mono); font-size: 11px;
+    color: var(--t3); letter-spacing: 0.02em;
+    flex: 1;
+  }
+  .next-free .arrow {
+    color: var(--acc); margin-right: 8px;
+  }
+  .next-free .seqs {
+    color: var(--t1); margin-left: 4px;
+  }
+  .next-free em {
+    font-style: normal; color: var(--ok);
+  }
+  .add-here {
+    background: transparent; border: 1px dashed var(--bd-strong);
+    color: var(--t2); padding: 5px 12px; border-radius: var(--r);
+    font-family: var(--f-mono); font-size: 10px;
+    letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all .12s;
+  }
+  .add-here:hover { color: var(--acc); border-color: var(--acc); border-style: solid; }
+  .add-here svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* ─── Inspector ────────────────────────────────────────── */
+  .inspector {
+    border-top: 1px solid var(--bd);
+    background: var(--bg-el);
+    padding: 0;
+    box-shadow: 0 -10px 30px -10px rgba(0,0,0,0.4);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+  .inspector-main {
+    padding: 18px 28px 22px;
+    border-right: 1px solid var(--bd-soft);
+    overflow-y: auto;
+    max-height: 320px;
+  }
+  .inspector-side {
+    padding: 18px 24px 22px;
+    overflow-y: auto;
+    max-height: 320px;
+    background: var(--bg-deep);
+  }
+  .insp-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .insp-num {
+    font-family: var(--f-mono); font-size: 14px; color: var(--acc);
+    font-weight: 500; letter-spacing: -0.01em;
+  }
+  .insp-meta {
+    font-family: var(--f-mono); font-size: 10px; color: var(--t3);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .insp-desc {
+    font-family: var(--f-disp); font-size: 22px; color: var(--t1);
+    letter-spacing: -0.01em; line-height: 1.15;
+    margin-bottom: 4px;
+  }
+  .insp-band {
+    font-family: var(--f-mono); font-size: 10px; color: var(--t3);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .insp-band .accent { color: var(--acc); }
+
+  .insp-fields {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+    margin-bottom: 18px; padding-bottom: 18px;
+    border-bottom: 1px solid var(--bd-soft);
+  }
+  .insp-fields .field .k {
+    font-family: var(--f-mono); font-size: 9px; color: var(--t4);
+    letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 5px;
+  }
+  .insp-fields .field .v {
+    font-size: 13px; color: var(--t1);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .insp-fields .field .v.empty {
+    color: var(--t4); font-style: italic; font-size: 12px;
+  }
+
+  /* Revision timeline */
+  .insp-section .h {
+    font-family: var(--f-mono); font-size: 9px; color: var(--t4);
+    letter-spacing: 0.16em; text-transform: uppercase; font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .timeline {
+    list-style: none;
+    position: relative;
+    padding-left: 18px;
+  }
+  .timeline::before {
+    content: ''; position: absolute;
+    top: 6px; bottom: 6px; left: 4px;
+    width: 1px; background: var(--bd);
+  }
+  .timeline li {
+    position: relative; padding: 0 0 12px 0;
+    display: grid; grid-template-columns: 32px 1fr auto; gap: 12px;
+    align-items: baseline;
+  }
+  .timeline li:last-child { padding-bottom: 0; }
+  .timeline li::before {
+    content: ''; position: absolute;
+    top: 6px; left: -18px;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--bg-el); border: 2px solid var(--bd);
+  }
+  .timeline li.current::before {
+    border-color: var(--acc);
+    background: var(--acc);
+    box-shadow: 0 0 0 3px var(--acc-glow);
+  }
+  .timeline .rev-label {
+    font-family: var(--f-mono); font-size: 11px; font-weight: 500;
+    color: var(--t1);
+  }
+  .timeline .rev-detail {
+    font-size: 12px; color: var(--t2);
+    display: flex; gap: 8px; align-items: baseline;
+  }
+  .timeline .rev-detail .pct {
+    font-family: var(--f-mono); font-size: 10px; color: var(--t3);
+  }
+  .timeline .rev-detail .phase {
+    font-family: var(--f-mono); font-size: 10px; color: var(--acc);
+    letter-spacing: 0.05em;
+  }
+  .timeline .rev-date {
+    font-family: var(--f-mono); font-size: 10px; color: var(--t3);
+  }
+
+  /* Files */
+  .files-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .file-card {
+    border: 1px solid var(--bd-soft); border-radius: var(--r);
+    padding: 10px 12px; background: var(--bg);
+  }
+  .file-card.found { border-color: rgba(107, 158, 107, 0.35); }
+  .file-card.missing { border-style: dashed; opacity: 0.7; }
+  .file-card .h {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .file-card .label {
+    font-family: var(--f-mono); font-size: 9px; color: var(--t4);
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .file-card .icon { color: var(--ok); font-family: var(--f-mono); font-size: 10px; }
+  .file-card.missing .icon { color: var(--t3); }
+  .file-card .filename {
+    font-family: var(--f-mono); font-size: 10.5px; color: var(--t1);
+    word-break: break-all; line-height: 1.3;
+  }
+  .file-card.missing .filename { color: var(--t3); }
+  .scan-note {
+    font-family: var(--f-mono); font-size: 9px; color: var(--t4);
+    letter-spacing: 0.04em; margin-top: 8px;
+    padding: 6px 8px; border-radius: 3px;
+    background: rgba(196, 162, 77, 0.05);
+    border: 1px dashed rgba(196, 162, 77, 0.2);
+  }
+  .scan-note .label { color: var(--warn); margin-right: 6px; }
+
+  /* ─── Bulk inspector variant ────────────────────────── */
+  .bulk-head {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 16px; padding-bottom: 14px;
+    border-bottom: 1px solid var(--bd-soft);
+  }
+  .bulk-count {
+    font-family: var(--f-disp); font-size: 28px; color: var(--acc);
+    line-height: 1; font-style: italic;
+  }
+  .bulk-label {
+    flex: 1;
+    font-family: var(--f-mono); font-size: 11px; color: var(--t2);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .bulk-clear {
+    font-family: var(--f-mono); font-size: 10px; color: var(--t3);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    background: none; border: none; cursor: pointer;
+  }
+  .bulk-clear:hover { color: var(--err); }
+
+  .bulk-summary {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    margin-bottom: 18px; padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--bd-soft);
+    border-radius: var(--r);
+  }
+  .bulk-summary .k {
+    font-family: var(--f-mono); font-size: 9px; color: var(--t4);
+    letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .bulk-summary .v {
+    font-size: 12px; color: var(--t1); font-weight: 500;
+  }
+  .bulk-summary .v.mixed { color: var(--t3); font-style: italic; font-weight: 400; }
+
+  .bulk-actions {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .bulk-action-btn {
+    background: var(--bg);
+    border: 1px solid var(--bd-soft);
+    color: var(--t1);
+    padding: 10px 14px;
+    border-radius: var(--r);
+    font-family: var(--f-body); font-size: 13px;
+    text-align: left; cursor: pointer;
+    display: flex; align-items: center; gap: 12px;
+    transition: all .12s;
+  }
+  .bulk-action-btn:hover {
+    border-color: var(--acc); background: var(--bg-el);
+  }
+  .bulk-action-btn .icn {
+    color: var(--acc);
+    font-family: var(--f-mono); font-size: 14px; width: 16px;
+  }
+  .bulk-action-btn .label .title { color: var(--t1); }
+  .bulk-action-btn .label .sub {
+    font-family: var(--f-mono); font-size: 10px; color: var(--t3);
+    letter-spacing: 0.04em; margin-top: 2px;
+  }
+
+  /* ─── Reconcile screen ─────────────────────────────── */
+  .reconcile-head {
+    padding: 28px;
+    border-bottom: 1px solid var(--bd-soft);
+  }
+  .reconcile-head h2 {
+    font-family: var(--f-disp); font-size: 30px; color: var(--t1);
+    letter-spacing: -0.015em; font-style: italic; margin-bottom: 8px;
+  }
+  .reconcile-head .scan-info {
+    font-family: var(--f-mono); font-size: 11px; color: var(--t3);
+    letter-spacing: 0.04em;
+  }
+  .reconcile-head .scan-info .path { color: var(--t2); }
+  .reconcile-head .scan-info .age { color: var(--ok); }
+  .reconcile-head .actions {
+    margin-top: 16px;
+    display: flex; gap: 10px; align-items: center;
+  }
+
+  .reconcile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    padding: 24px 28px;
+  }
+  .recon-card {
+    background: var(--bg-el);
+    border: 1px solid var(--bd-soft);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+  }
+  .recon-card.severe { border-color: rgba(184, 92, 92, 0.3); }
+  .recon-card.warn { border-color: rgba(196, 162, 77, 0.3); }
+  .recon-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--bd-soft);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .recon-head .icon {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--f-mono); font-weight: 500; font-size: 11px;
+  }
+  .recon-card.severe .recon-head .icon { background: rgba(184, 92, 92, 0.15); color: var(--err); }
+  .recon-card.warn .recon-head .icon { background: rgba(196, 162, 77, 0.15); color: var(--warn); }
+  .recon-head .title {
+    font-family: var(--f-body); font-size: 13px; color: var(--t1);
+    font-weight: 500; flex: 1;
+  }
+  .recon-head .count {
+    font-family: var(--f-mono); font-size: 12px; font-weight: 500;
+  }
+  .recon-card.severe .recon-head .count { color: var(--err); }
+  .recon-card.warn .recon-head .count { color: var(--warn); }
+  .recon-body {
+    padding: 4px 0; max-height: 360px; overflow-y: auto;
+  }
+  .recon-row {
+    padding: 9px 18px;
+    border-bottom: 1px solid var(--bd-soft);
+    display: grid; grid-template-columns: auto 1fr auto; gap: 10px;
+    align-items: center;
+    cursor: pointer;
+    transition: background .1s;
+  }
+  .recon-row:hover { background: var(--bg-card); }
+  .recon-row:last-child { border-bottom: none; }
+  .recon-row .num {
+    font-family: var(--f-mono); font-size: 11.5px;
+    color: var(--acc); font-weight: 500;
+  }
+  .recon-row .desc {
+    font-size: 12px; color: var(--t2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .recon-row .meta {
+    font-family: var(--f-mono); font-size: 10px;
+    color: var(--t3); letter-spacing: 0.04em;
+  }
+  .recon-row .meta.warn { color: var(--warn); }
+  .recon-empty {
+    padding: 24px 18px; text-align: center;
+    font-family: var(--f-mono); font-size: 11px; color: var(--t3);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── Annotations ──────────────────────────────────── */
+  .annotations {
+    margin-top: 32px;
+    background: var(--bg);
+    border: 1px solid var(--bd-soft);
+    border-radius: var(--r-lg);
+    padding: 24px 32px 28px;
+  }
+  .annotations h4 {
+    font-family: var(--f-disp); font-size: 22px; color: var(--t1);
+    letter-spacing: -0.01em; margin-bottom: 16px; font-style: italic;
+  }
+  .annotations h5 {
+    font-family: var(--f-mono); font-size: 10px; color: var(--t4);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    margin-top: 18px; margin-bottom: 10px; font-weight: 500;
+  }
+  .annotations h5:first-of-type { margin-top: 4px; }
+  .annotations ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .annotations li {
+    display: grid; grid-template-columns: auto 1fr; gap: 14px;
+    align-items: baseline;
+    font-size: 13px; color: var(--t2); line-height: 1.55;
+    max-width: 880px;
+  }
+  .annotations li::before {
+    content: '→'; color: var(--acc);
+    font-family: var(--f-mono); font-weight: 500;
+  }
+  .annotations strong { color: var(--t1); font-weight: 500; }
+  .annotations code {
+    font-family: var(--f-mono); font-size: 12px;
+    background: var(--bg-card); color: var(--acc);
+    padding: 1px 6px; border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+
+<div class="sketch-frame">
+
+  <div class="sketch-header">
+    <div class="sketch-title">Drawing List Manager</div>
+    <div class="sketch-subtitle">Workspace pattern · v2 sketch</div>
+    <div class="sketch-meta">CHAMBER 19 · ROOT3POWER</div>
+  </div>
+
+  <div class="sketch-tabs">
+    <button class="sketch-tab active" data-screen="single">
+      <span class="num">01</span>SELECTION · ONE
+    </button>
+    <button class="sketch-tab" data-screen="bulk">
+      <span class="num">02</span>SELECTION · BULK
+    </button>
+    <button class="sketch-tab" data-screen="reconcile">
+      <span class="num">03</span>RECONCILE
+    </button>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       SCREEN 1: SINGLE SELECTION
+       ════════════════════════════════════════════════════════════════════ -->
+  <div class="app-window active" id="screen-single">
+    <div class="titlebar">
+      <div class="titlebar-dots">
+        <div class="titlebar-dot"></div>
+        <div class="titlebar-dot"></div>
+        <div class="titlebar-dot"></div>
+      </div>
+      <div class="titlebar-title">R3P-25074 — Nanulak BESS &amp; Substation</div>
+    </div>
+    <div class="app-header">
+      <div class="logo-mark">R3P</div>
+      <div>
+        <div class="app-name">Drawing List Manager</div>
+        <div class="app-tag">ROOT3POWER</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="header-meta"><span class="header-pip"></span>connected · localhost:8001</div>
+    </div>
+
+    <!-- Project bar -->
+    <div class="project-bar">
+      <div class="project-id">
+        <div class="num">R3P-25074</div>
+        <div class="name">Nanulak BESS &amp; Substation</div>
+      </div>
+      <div class="project-stats">
+        <div class="stat-block">
+          <div class="k">Drawings</div>
+          <div class="v">187</div>
+        </div>
+        <div class="stat-block">
+          <div class="k">Phase</div>
+          <div class="v"><span class="phase-pill">60% IFA</span></div>
+        </div>
+        <div class="stat-block">
+          <div class="k">Saved</div>
+          <div class="v">2 min ago</div>
+        </div>
+        <div class="stat-block">
+          <div class="k">Folder</div>
+          <div class="v accent">G:\Projects\R3P-25074</div>
+        </div>
+      </div>
+      <div class="project-actions">
+        <button class="btn ghost" title="Coming next slice">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Promote to IFC
+        </button>
+        <button class="btn disabled" title="Read-only slice">Save</button>
+        <button class="btn primary disabled" title="Read-only slice">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Export
+        </button>
+      </div>
+    </div>
+
+    <!-- View tabs -->
+    <div class="view-tabs">
+      <button class="view-tab active">Drawings</button>
+      <button class="view-tab">Reconcile <span class="badge warn">22</span></button>
+      <button class="view-tab">Export Preview</button>
+    </div>
+
+    <!-- Workspace -->
+    <div class="workspace">
+
+      <!-- Nav pane -->
+      <div class="nav-pane">
+        <div class="nav-section">
+          <div class="h">Browse</div>
+          <div class="nav-row no-arrow">
+            <span class="arrow"></span>
+            <span class="label">All drawings</span>
+            <span class="count">187</span>
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="h">Types</div>
+
+          <div class="nav-row">
+            <span class="arrow">▶</span>
+            <span class="label"><span class="type-code">E0</span>General</span>
+            <span class="count">6</span>
+          </div>
+
+          <div class="nav-row">
+            <span class="arrow">▼</span>
+            <span class="label"><span class="type-code">E1</span>Plans</span>
+            <span class="count">24</span>
+          </div>
+          <div class="nav-row nav-band">
+            <span></span>
+            <span class="glyph"></span>
+            <span class="label">Area Plans <span style="color:var(--t4);font-family:var(--f-mono);font-size:10px;margin-left:4px">0001-0100</span></span>
+            <span class="count">5</span>
+          </div>
+          <div class="nav-row nav-band active">
+            <span></span>
+            <span class="glyph"></span>
+            <span class="label">Cable Tray Routing <span style="color:var(--acc);opacity:0.65;font-family:var(--f-mono);font-size:10px;margin-left:4px">0301-0400</span></span>
+            <span class="count">4</span>
+          </div>
+          <div class="nav-row nav-band">
+            <span></span>
+            <span class="glyph"></span>
+            <span class="label">Power &amp; Control <span style="color:var(--t4);font-family:var(--f-mono);font-size:10px;margin-left:4px">0401-0500</span></span>
+            <span class="count">8</span>
+          </div>
+          <div class="nav-row nav-band">
+            <span></span>
+            <span class="glyph"></span>
+            <span class="label">Grounding <span style="color:var(--t4);font-family:var(--f-mono);font-size:10px;margin-left:4px">0601-0700</span></span>
+            <span class="count">3</span>
+          </div>
+          <div class="nav-row nav-band">
+            <span></span>
+            <span class="glyph"></span>
+            <span class="label">Foundation <span style="color:var(--t4);font-family:var(--f-mono);font-size:10px;margin-left:4px">0701-0800</span></span>
+            <span class="count">2</span>
+          </div>
+          <div class="nav-row nav-band" style="opacity:0.45">
+            <span></span>
+            <span class="glyph"></span>
+            <span class="label">Cable Tray Support</span>
+            <span class="count">0</span>
+          </div>
+
+          <div class="nav-row empty" style="margin-top:4px">
+            <span class="arrow">▶</span>
+            <span class="label"><span class="type-code">E2</span>Elevations</span>
+            <span class="count">0</span>
+          </div>
+          <div class="nav-row empty">
+            <span class="arrow">▶</span>
+            <span class="label"><span class="type-code">E3</span>Sections</span>
+            <span class="count">0</span>
+          </div>
+          <div class="nav-row">
+            <span class="arrow">▶</span>
+            <span class="label"><span class="type-code">E5</span>Details</span>
+            <span class="count">22</span>
+          </div>
+          <div class="nav-row">
+            <span class="arrow">▶</span>
+            <span class="label"><span class="type-code">E6</span>Schedules &amp; Diag.</span>
+            <span class="count">47</span>
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="h">Filter by status</div>
+          <div class="nav-status-row">
+            <span class="glyph">
+              <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="#6B9E6B"/></svg>
+            </span>
+            <span class="label">Ready for submittal</span>
+            <span class="count">73</span>
+          </div>
+          <div class="nav-status-row">
+            <span class="glyph">
+              <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#5C8EB8" stroke-width="1.5"/><path d="M 6 1.5 A 4.5 4.5 0 0 1 6 10.5 Z" fill="#5C8EB8"/></svg>
+            </span>
+            <span class="label">Ready for drafting</span>
+            <span class="count">18</span>
+          </div>
+          <div class="nav-status-row">
+            <span class="glyph">
+              <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#C4A24D" stroke-width="1.5"/><path d="M 6 1.5 A 4.5 4.5 0 0 1 10.5 6 L 6 6 Z" fill="#C4A24D"/></svg>
+            </span>
+            <span class="label">In design</span>
+            <span class="count">41</span>
+          </div>
+          <div class="nav-status-row">
+            <span class="glyph">
+              <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#736E64" stroke-width="1.5"/></svg>
+            </span>
+            <span class="label">Not created yet</span>
+            <span class="count">23</span>
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="h">Sets</div>
+          <div class="nav-row no-arrow">
+            <span class="arrow"></span>
+            <span class="label" style="display:flex;align-items:center;gap:8px">
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--acc)"></span>
+              P&amp;C
+            </span>
+            <span class="count">114</span>
+          </div>
+          <div class="nav-row no-arrow">
+            <span class="arrow"></span>
+            <span class="label" style="display:flex;align-items:center;gap:8px">
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--info)"></span>
+              Physicals
+            </span>
+            <span class="count">73</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Work pane -->
+      <div class="work-pane">
+        <div class="work-head">
+          <h2>Cable Tray Routing</h2>
+          <div class="crumb">
+            <span class="seg">Type 1 Plans</span>
+            <span class="sep">/</span>
+            <span class="seg current">0301-0400</span>
+          </div>
+        </div>
+        <div class="work-sub">band &nbsp;·&nbsp; 4 of 100 sequence positions filled &nbsp;·&nbsp; 96 positions free</div>
+
+        <div class="work-toolbar">
+          <div class="search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input placeholder="Search this band…">
+          </div>
+          <span class="toolbar-pill active">Cable Tray Routing <span class="x">✕</span></span>
+          <div class="spacer"></div>
+          <button class="btn ghost" title="Coming next slice">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            Group by status
+          </button>
+        </div>
+
+        <!-- ── Band card: 0301-0400 (focused) ── -->
+        <div class="band-card focused">
+          <div class="band-head">
+            <span class="seq-range">0301-0400</span>
+            <span class="dot"></span>
+            <span class="label">Cable Tray Routing Plans</span>
+            <div class="progress">
+              <span class="bar"><span class="fill" style="width:62%"></span></span>
+              <span class="pct">62%</span>
+            </div>
+            <span class="count-frac"><span class="num">4</span>/8 active</span>
+          </div>
+          <div class="band-body">
+            <div class="draw-row">
+              <span class="check"></span>
+              <span class="stat-glyph">
+                <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="#6B9E6B"/></svg>
+              </span>
+              <span class="num">R3P-25074-E1-0301</span>
+              <span class="desc">CT Routing — Substation Yard</span>
+              <span><span class="set-tag phys">Physicals</span></span>
+              <span class="rev">
+                <span class="pct">60%</span><span class="ph">IFA</span><span>Rev B</span>
+                <span class="date">11-15</span>
+              </span>
+            </div>
+            <div class="draw-row">
+              <span class="check"></span>
+              <span class="stat-glyph">
+                <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="#6B9E6B"/></svg>
+              </span>
+              <span class="num">R3P-25074-E1-0305</span>
+              <span class="desc">CT Routing — BESS Skid 1</span>
+              <span><span class="set-tag phys">Physicals</span></span>
+              <span class="rev">
+                <span class="pct">60%</span><span class="ph">IFA</span><span>Rev B</span>
+                <span class="date">11-15</span>
+              </span>
+            </div>
+            <div class="draw-row selected">
+              <span class="check"></span>
+              <span class="stat-glyph">
+                <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#C4A24D" stroke-width="1.5"/><path d="M 6 1.5 A 4.5 4.5 0 0 1 10.5 6 L 6 6 Z" fill="#C4A24D"/></svg>
+              </span>
+              <span class="num">R3P-25074-E1-0307</span>
+              <span class="desc">CT Routing — BESS Skid 2</span>
+              <span><span class="set-tag phys">Physicals</span></span>
+              <span class="rev">
+                <span class="pct">30%</span><span class="ph">IFA</span><span>Rev A</span>
+                <span class="date">10-17</span>
+              </span>
+            </div>
+            <div class="draw-row">
+              <span class="check"></span>
+              <span class="stat-glyph">
+                <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#736E64" stroke-width="1.5"/></svg>
+              </span>
+              <span class="num">R3P-25074-E1-0308</span>
+              <span class="desc">CT Routing — DC Yard</span>
+              <span><span class="set-tag phys">Physicals</span></span>
+              <span class="rev none">No revisions yet</span>
+            </div>
+          </div>
+          <div class="band-foot">
+            <div class="next-free">
+              <span class="arrow">↳</span>
+              next free <em>0302–0304</em>, <em>0306</em>, <span class="seqs">0309–0400</span>
+            </div>
+            <button class="add-here" title="Coming next slice">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              Add in this band
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inspector (single selection) -->
+    <div class="inspector">
+      <div class="inspector-main">
+        <div class="insp-head">
+          <div class="insp-num">R3P-25074-E1-0307</div>
+          <div class="insp-meta">Physicals · Type 1 Plans</div>
+        </div>
+        <div class="insp-desc">CT Routing — BESS Skid 2</div>
+        <div class="insp-band">band <span class="accent">0301-0400 cable tray routing plans</span> · seq 0307</div>
+
+        <div class="insp-fields">
+          <div class="field">
+            <div class="k">Status</div>
+            <div class="v">
+              <svg width="12" height="12" viewBox="0 0 12 12" style="vertical-align:middle"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#C4A24D" stroke-width="1.5"/><path d="M 6 1.5 A 4.5 4.5 0 0 1 10.5 6 L 6 6 Z" fill="#C4A24D"/></svg>
+              In design
+            </div>
+          </div>
+          <div class="field">
+            <div class="k">Current rev</div>
+            <div class="v" style="font-family:var(--f-mono);font-size:12px">30% IFA Rev A · 10-17</div>
+          </div>
+          <div class="field">
+            <div class="k">Notes</div>
+            <div class="v empty">none</div>
+          </div>
+        </div>
+
+        <div class="insp-section">
+          <div class="h">Revision history · 1 entry</div>
+          <ul class="timeline">
+            <li class="current">
+              <div class="rev-label">Rev A</div>
+              <div class="rev-detail">
+                <span class="pct">30%</span>
+                <span class="phase">IFA</span>
+              </div>
+              <div class="rev-date">2025-10-17</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="inspector-side">
+        <div class="insp-section">
+          <div class="h">Files on disk · 1 of 2</div>
+          <div class="files-grid">
+            <div class="file-card found">
+              <div class="h">
+                <div class="label">DWG</div>
+                <div class="icon">✓</div>
+              </div>
+              <div class="filename">R3P-25074-E1-0307.dwg</div>
+            </div>
+            <div class="file-card missing">
+              <div class="h">
+                <div class="label">PDF</div>
+                <div class="icon">—</div>
+              </div>
+              <div class="filename">missing for current rev</div>
+            </div>
+          </div>
+          <div class="scan-note">
+            <span class="label">SCAN</span>
+            project scan endpoint not yet implemented · slot reserved
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       SCREEN 2: BULK SELECTION
+       ════════════════════════════════════════════════════════════════════ -->
+  <div class="app-window" id="screen-bulk">
+    <div class="titlebar">
+      <div class="titlebar-dots">
+        <div class="titlebar-dot"></div>
+        <div class="titlebar-dot"></div>
+        <div class="titlebar-dot"></div>
+      </div>
+      <div class="titlebar-title">R3P-25074 — Nanulak BESS &amp; Substation</div>
+    </div>
+    <div class="app-header">
+      <div class="logo-mark">R3P</div>
+      <div>
+        <div class="app-name">Drawing List Manager</div>
+        <div class="app-tag">ROOT3POWER</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="header-meta"><span class="header-pip"></span>connected · localhost:8001</div>
+    </div>
+
+    <div class="project-bar">
+      <div class="project-id">
+        <div class="num">R3P-25074</div>
+        <div class="name">Nanulak BESS &amp; Substation</div>
+      </div>
+      <div class="project-stats">
+        <div class="stat-block">
+          <div class="k">Drawings</div>
+          <div class="v">187</div>
+        </div>
+        <div class="stat-block">
+          <div class="k">Phase</div>
+          <div class="v"><span class="phase-pill">60% IFA</span></div>
+        </div>
+        <div class="stat-block">
+          <div class="k">Saved</div>
+          <div class="v">2 min ago</div>
+        </div>
+        <div class="stat-block">
+          <div class="k">Folder</div>
+          <div class="v accent">G:\Projects\R3P-25074</div>
+        </div>
+      </div>
+      <div class="project-actions">
+        <button class="btn ghost">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Promote to IFC
+        </button>
+        <button class="btn disabled">Save</button>
+        <button class="btn primary disabled">Export</button>
+      </div>
+    </div>
+
+    <div class="view-tabs">
+      <button class="view-tab active">Drawings</button>
+      <button class="view-tab">Reconcile <span class="badge warn">22</span></button>
+      <button class="view-tab">Export Preview</button>
+    </div>
+
+    <div class="workspace">
+      <!-- Nav pane (same as single) -->
+      <div class="nav-pane">
+        <div class="nav-section">
+          <div class="h">Browse</div>
+          <div class="nav-row no-arrow">
+            <span class="arrow"></span>
+            <span class="label">All drawings</span>
+            <span class="count">187</span>
+          </div>
+        </div>
+        <div class="nav-section">
+          <div class="h">Types</div>
+          <div class="nav-row">
+            <span class="arrow">▶</span>
+            <span class="label"><span class="type-code">E0</span>General</span>
+            <span class="count">6</span>
+          </div>
+          <div class="nav-row">
+            <span class="arrow">▼</span>
+            <span class="label"><span class="type-code">E1</span>Plans</span>
+            <span class="count">24</span>
+          </div>
+          <div class="nav-row nav-band">
+            <span></span>
+            <span class="glyph"></span>
+            <span class="label">Area Plans</span>
+            <span class="count">5</span>
+          </div>
+          <div class="nav-row nav-band active">
+            <span></span>
+            <span class="glyph"></span>
+            <span class="label">Cable Tray Routing</span>
+            <span class="count">4</span>
+          </div>
+          <div class="nav-row nav-band">
+            <span></span>
+            <span class="glyph"></span>
+            <span class="label">Power &amp; Control</span>
+            <span class="count">8</span>
+          </div>
+          <div class="nav-row nav-band">
+            <span></span>
+            <span class="glyph"></span>
+            <span class="label">Grounding</span>
+            <span class="count">3</span>
+          </div>
+          <div class="nav-row nav-band">
+            <span></span>
+            <span class="glyph"></span>
+            <span class="label">Foundation</span>
+            <span class="count">2</span>
+          </div>
+          <div class="nav-row" style="margin-top:4px">
+            <span class="arrow">▶</span>
+            <span class="label"><span class="type-code">E5</span>Details</span>
+            <span class="count">22</span>
+          </div>
+          <div class="nav-row">
+            <span class="arrow">▶</span>
+            <span class="label"><span class="type-code">E6</span>Schedules &amp; Diag.</span>
+            <span class="count">47</span>
+          </div>
+        </div>
+        <div class="nav-section">
+          <div class="h">Filter by status</div>
+          <div class="nav-status-row">
+            <span class="glyph"><svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="#6B9E6B"/></svg></span>
+            <span class="label">Ready for submittal</span>
+            <span class="count">73</span>
+          </div>
+          <div class="nav-status-row">
+            <span class="glyph"><svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#C4A24D" stroke-width="1.5"/><path d="M 6 1.5 A 4.5 4.5 0 0 1 10.5 6 L 6 6 Z" fill="#C4A24D"/></svg></span>
+            <span class="label">In design</span>
+            <span class="count">41</span>
+          </div>
+          <div class="nav-status-row">
+            <span class="glyph"><svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#736E64" stroke-width="1.5"/></svg></span>
+            <span class="label">Not created yet</span>
+            <span class="count">23</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Work pane -->
+      <div class="work-pane">
+        <div class="work-head">
+          <h2>Cable Tray Routing</h2>
+          <div class="crumb">
+            <span class="seg">Type 1 Plans</span>
+            <span class="sep">/</span>
+            <span class="seg current">0301-0400</span>
+          </div>
+        </div>
+        <div class="work-sub">3 selected · use shift-click to extend selection · cmd-click to toggle</div>
+
+        <div class="work-toolbar">
+          <div class="search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input placeholder="Search this band…">
+          </div>
+          <span class="toolbar-pill active">Cable Tray Routing <span class="x">✕</span></span>
+          <div class="spacer"></div>
+          <button class="btn ghost">Group by status</button>
+        </div>
+
+        <div class="band-card focused">
+          <div class="band-head">
+            <span class="seq-range">0301-0400</span>
+            <span class="dot"></span>
+            <span class="label">Cable Tray Routing Plans</span>
+            <div class="progress">
+              <span class="bar"><span class="fill" style="width:62%"></span></span>
+              <span class="pct">62%</span>
+            </div>
+            <span class="count-frac"><span class="num">3</span>/4 selected</span>
+          </div>
+          <div class="band-body">
+            <div class="draw-row selected">
+              <span class="check"></span>
+              <span class="stat-glyph">
+                <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="#6B9E6B"/></svg>
+              </span>
+              <span class="num">R3P-25074-E1-0301</span>
+              <span class="desc">CT Routing — Substation Yard</span>
+              <span><span class="set-tag phys">Physicals</span></span>
+              <span class="rev">
+                <span class="pct">60%</span><span class="ph">IFA</span><span>Rev B</span>
+                <span class="date">11-15</span>
+              </span>
+            </div>
+            <div class="draw-row selected">
+              <span class="check"></span>
+              <span class="stat-glyph">
+                <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="#6B9E6B"/></svg>
+              </span>
+              <span class="num">R3P-25074-E1-0305</span>
+              <span class="desc">CT Routing — BESS Skid 1</span>
+              <span><span class="set-tag phys">Physicals</span></span>
+              <span class="rev">
+                <span class="pct">60%</span><span class="ph">IFA</span><span>Rev B</span>
+                <span class="date">11-15</span>
+              </span>
+            </div>
+            <div class="draw-row selected">
+              <span class="check"></span>
+              <span class="stat-glyph">
+                <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#C4A24D" stroke-width="1.5"/><path d="M 6 1.5 A 4.5 4.5 0 0 1 10.5 6 L 6 6 Z" fill="#C4A24D"/></svg>
+              </span>
+              <span class="num">R3P-25074-E1-0307</span>
+              <span class="desc">CT Routing — BESS Skid 2</span>
+              <span><span class="set-tag phys">Physicals</span></span>
+              <span class="rev">
+                <span class="pct">30%</span><span class="ph">IFA</span><span>Rev A</span>
+                <span class="date">10-17</span>
+              </span>
+            </div>
+            <div class="draw-row">
+              <span class="check"></span>
+              <span class="stat-glyph">
+                <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="#736E64" stroke-width="1.5"/></svg>
+              </span>
+              <span class="num">R3P-25074-E1-0308</span>
+              <span class="desc">CT Routing — DC Yard</span>
+              <span><span class="set-tag phys">Physicals</span></span>
+              <span class="rev none">No revisions yet</span>
+            </div>
+          </div>
+          <div class="band-foot">
+            <div class="next-free">
+              <span class="arrow">↳</span>
+              next free <em>0302–0304</em>, <em>0306</em>, <span class="seqs">0309–0400</span>
+            </div>
+            <button class="add-here">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              Add in this band
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inspector (bulk mode) -->
+    <div class="inspector">
+      <div class="inspector-main">
+        <div class="bulk-head">
+          <div class="bulk-count">3</div>
+          <div class="bulk-label">drawings selected</div>
+          <button class="bulk-clear">Clear · esc</button>
+        </div>
+
+        <div class="bulk-summary">
+          <div>
+            <div class="k">Common set</div>
+            <div class="v">Physicals</div>
+          </div>
+          <div>
+            <div class="k">Common band</div>
+            <div class="v">Cable Tray Routing</div>
+          </div>
+          <div>
+            <div class="k">Statuses</div>
+            <div class="v mixed">2 Ready · 1 In design</div>
+          </div>
+          <div>
+            <div class="k">Phases</div>
+            <div class="v mixed">All IFA</div>
+          </div>
+          <div>
+            <div class="k">Latest revs</div>
+            <div class="v mixed">Mixed (A, B)</div>
+          </div>
+          <div>
+            <div class="k">Files on disk</div>
+            <div class="v mixed">3 DWG · 2 PDF</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inspector-side">
+        <div class="insp-section">
+          <div class="h">Bulk actions</div>
+          <div class="bulk-actions">
+            <button class="bulk-action-btn">
+              <span class="icn">+</span>
+              <span class="label">
+                <div class="title">Advance to next rev</div>
+                <div class="sub">→ 90% IFA Rev C · today</div>
+              </span>
+            </button>
+            <button class="bulk-action-btn">
+              <span class="icn">●</span>
+              <span class="label">
+                <div class="title">Set status</div>
+                <div class="sub">change for all 3</div>
+              </span>
+            </button>
+            <button class="bulk-action-btn">
+              <span class="icn">↑</span>
+              <span class="label">
+                <div class="title">Promote to IFC</div>
+                <div class="sub">starts numeric series at Rev 0</div>
+              </span>
+            </button>
+            <button class="bulk-action-btn" style="border-color:rgba(184,92,92,0.25)">
+              <span class="icn" style="color:var(--err)">✕</span>
+              <span class="label">
+                <div class="title" style="color:var(--err)">Mark superseded</div>
+                <div class="sub">leaves entry for audit, hides from active view</div>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       SCREEN 3: RECONCILE
+       ════════════════════════════════════════════════════════════════════ -->
+  <div class="app-window" id="screen-reconcile">
+    <div class="titlebar">
+      <div class="titlebar-dots">
+        <div class="titlebar-dot"></div>
+        <div class="titlebar-dot"></div>
+        <div class="titlebar-dot"></div>
+      </div>
+      <div class="titlebar-title">R3P-25074 — Reconcile</div>
+    </div>
+    <div class="app-header">
+      <div class="logo-mark">R3P</div>
+      <div>
+        <div class="app-name">Drawing List Manager</div>
+        <div class="app-tag">ROOT3POWER</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="header-meta"><span class="header-pip"></span>connected · localhost:8001</div>
+    </div>
+
+    <div class="project-bar">
+      <div class="project-id">
+        <div class="num">R3P-25074</div>
+        <div class="name">Nanulak BESS &amp; Substation</div>
+      </div>
+      <div class="project-stats">
+        <div class="stat-block">
+          <div class="k">Register</div>
+          <div class="v">187</div>
+        </div>
+        <div class="stat-block">
+          <div class="k">DWG on disk</div>
+          <div class="v">156</div>
+        </div>
+        <div class="stat-block">
+          <div class="k">PDF on disk</div>
+          <div class="v">142</div>
+        </div>
+        <div class="stat-block">
+          <div class="k">Issues</div>
+          <div class="v" style="color:var(--warn)">22</div>
+        </div>
+      </div>
+      <div class="project-actions">
+        <button class="btn"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.5 2.7L21 8"/><path d="M21 3v5h-5"/></svg>Re-scan</button>
+      </div>
+    </div>
+
+    <div class="view-tabs">
+      <button class="view-tab">Drawings</button>
+      <button class="view-tab active">Reconcile <span class="badge warn">22</span></button>
+      <button class="view-tab">Export Preview</button>
+    </div>
+
+    <div class="reconcile-head">
+      <h2>Register vs. disk</h2>
+      <div class="scan-info">
+        scanned <span class="path">G:\Projects\R3P-25074\Drawings\Live</span> · <span class="path">G:\Projects\R3P-25074\Drawings\PDF</span>
+        &nbsp;·&nbsp;
+        <span class="age">last scan 2 min ago</span>
+      </div>
+    </div>
+
+    <div class="reconcile-grid">
+      <div class="recon-card severe">
+        <div class="recon-head">
+          <div class="icon">!</div>
+          <div class="title">In register · no DWG</div>
+          <div class="count">7</div>
+        </div>
+        <div class="recon-body">
+          <div class="recon-row">
+            <span class="num">E1-0308</span>
+            <span class="desc">CT Routing — DC Yard</span>
+            <span class="meta">not yet</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E1-0501</span>
+            <span class="desc">Instrumentation — Sub</span>
+            <span class="meta">not yet</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E1-0801</span>
+            <span class="desc">Cable Tray Support — Sub</span>
+            <span class="meta">not yet</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E5-0102</span>
+            <span class="desc">Cond Routing Detail</span>
+            <span class="meta">not yet</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E5-0501</span>
+            <span class="desc">CT Support Detail</span>
+            <span class="meta">not yet</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E6-0410</span>
+            <span class="desc">Wiring — DCP-B</span>
+            <span class="meta">in design</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E6-0612</span>
+            <span class="desc">Panel Sched — UPS-1</span>
+            <span class="meta">in design</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="recon-card warn">
+        <div class="recon-head">
+          <div class="icon">?</div>
+          <div class="title">DWG · no register entry</div>
+          <div class="count">3</div>
+        </div>
+        <div class="recon-body">
+          <div class="recon-row">
+            <span class="num">E5-0203</span>
+            <span class="desc">R3P-25074-E5-0203.dwg</span>
+            <span class="meta warn">orphan</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E1-0099</span>
+            <span class="desc">R3P-25074-E1-0099.dwg</span>
+            <span class="meta warn">orphan</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E0-0150</span>
+            <span class="desc">R3P-25074-E0-0150.dwg</span>
+            <span class="meta warn">orphan</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="recon-card warn">
+        <div class="recon-head">
+          <div class="icon">≠</div>
+          <div class="title">PDF stale for current rev</div>
+          <div class="count">12</div>
+        </div>
+        <div class="recon-body">
+          <div class="recon-row">
+            <span class="num">E1-0301</span>
+            <span class="desc">CT Routing — Sub Yard</span>
+            <span class="meta">PDF·A &nbsp; DWG·B</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E1-0305</span>
+            <span class="desc">CT Routing — BESS Skid 1</span>
+            <span class="meta">PDF·A &nbsp; DWG·B</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E1-0407</span>
+            <span class="desc">P&amp;C Routing — BESS Skid 1</span>
+            <span class="meta">PDF·— &nbsp; DWG·A</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E6-0001</span>
+            <span class="desc">Overall Single Line</span>
+            <span class="meta">PDF·A &nbsp; DWG·0</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E6-0201</span>
+            <span class="desc">AC Schem — Relay 751-103</span>
+            <span class="meta">PDF·A &nbsp; DWG·B</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E6-0202</span>
+            <span class="desc">AC Schem — Relay 751-201</span>
+            <span class="meta">PDF·A &nbsp; DWG·B</span>
+          </div>
+          <div class="recon-row">
+            <span class="num">E6-0601</span>
+            <span class="desc">Panel Sched — DCP-A</span>
+            <span class="meta">PDF·— &nbsp; DWG·A</span>
+          </div>
+          <div class="recon-row" style="opacity:0.6">
+            <span class="num">…</span>
+            <span class="desc">5 more</span>
+            <span class="meta"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Annotations ─────────────────────────────────────────── -->
+  <div class="annotations">
+    <h4>Why this is the better pattern</h4>
+
+    <h5>Navigation matches the spec</h5>
+    <ul>
+      <li><span><strong>Type-band tree on the left.</strong> The R3P numbering convention IS a hierarchy (discipline → type → band → seq). The nav reflects that 1:1 instead of flattening it into a search box. You click "Cable Tray Routing" the way you'd think it.</span></li>
+      <li><span><strong>Status filters compose with the type tree.</strong> Click "Cable Tray Routing" and "In design" together — the workspace shows just the cable tray drawings still being designed. No filter modal, no faceted search UI. The whole left rail IS the filter.</span></li>
+      <li><span><strong>Counts everywhere.</strong> Every node in the tree shows its count. Bands with zero drawings dim out. You see project shape at a glance.</span></li>
+    </ul>
+
+    <h5>Band cards keep standards alive</h5>
+    <ul>
+      <li><span><strong>Each band is a card with band metadata in its header.</strong> Sequence range, label, fill progress bar, "n/m active" count. The band IS the visual unit, not just metadata on a row.</span></li>
+      <li><span><strong>Next-free seqs are always visible.</strong> The band footer shows <code>↳ next free 0302-0304, 0306, 0309-0400</code>. When you go to add a drawing you don't have to think — the answer is on screen. This single feature replaces the entire mental load of "what's the next free number" that drives most of the existing manual workflow.</span></li>
+      <li><span><strong>"Add in this band" is contextual.</strong> The button knows the band already, so add-drawing flow becomes: pick a seq from the suggestions, type the description, done. No band selector, no type dropdown, no validation that you didn't pick a number outside the band.</span></li>
+    </ul>
+
+    <h5>Selection model is bulk-first</h5>
+    <ul>
+      <li><span><strong>Inspector adapts to selection size.</strong> One drawing → details + history + files. Multiple drawings → summary of common/different fields + bulk actions. No separate "bulk edit mode" — it's just what the inspector does when more than one row is selected.</span></li>
+      <li><span><strong>Bulk actions match real workflow.</strong> "Advance to next rev" with today's date, "Promote to IFC" (validates and starts numeric series at 0), "Mark superseded" (preserves audit trail per rule #3 in copilot-instructions: drawing numbers are immutable identifiers). These are operations you do on sets of drawings, not on individual ones.</span></li>
+      <li><span><strong>Status glyphs visualize progression.</strong> ○ → ◐ → ◑ → ● is a quality-completion gradient that reads at a glance across 187 drawings. Color reinforces it: grey → amber → blue → green.</span></li>
+    </ul>
+
+    <h5>Reconcile is a first-class view</h5>
+    <ul>
+      <li><span><strong>Three columns of asymmetric problems.</strong> Register-without-DWG (severe — drawings you owe), DWG-without-register (warn — orphans, often during refactors), PDF-stale (warn — the most common drift, since PDFs are exported less often than DWGs change). Different severities get different border colors so triage is visual.</span></li>
+      <li><span><strong>Click any row to jump back to the workspace</strong> filtered to that drawing. Reconcile is a triage view that hands off to the workspace for fixing.</span></li>
+    </ul>
+
+    <h5>What this slice ships</h5>
+    <ul>
+      <li><span>Project marker → load → display the type-band tree (read-only) → render band cards with drawings (read-only) → single + bulk selection inspector (read-only) → reconcile tab. <strong>Project scan endpoint</strong> is required to make reconcile and file-presence work — that's the new backend work this slice introduces beyond what already exists.</span></li>
+      <li><span>Save / Export / Add / bulk-action buttons all render but are <strong>disabled with hover tooltips</strong>. Layout doesn't change when interactivity lands in slice 2 — only the disabled flags flip.</span></li>
+    </ul>
+
+    <h5>What slice 2 turns on</h5>
+    <ul>
+      <li><span>Add-drawing flow with band-aware suggestions, drawing edit form, bulk-rev-advance, IFA→IFC project promotion, save, Excel export. The workspace is the same screen — slice 2 just makes the buttons real.</span></li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.sketch-tab');
+  const screens = document.querySelectorAll('.app-window');
+
+  function showScreen(name) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.screen === name));
+    screens.forEach(s => s.classList.toggle('active', s.id === 'screen-' + name));
+    window.scrollTo({ top: document.querySelector('.sketch-tabs').offsetTop - 24, behavior: 'smooth' });
+  }
+
+  tabs.forEach(tab => tab.addEventListener('click', () => showScreen(tab.dataset.screen)));
+</script>
+
+</body>
+</html>
