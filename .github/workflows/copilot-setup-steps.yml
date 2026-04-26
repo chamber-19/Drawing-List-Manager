@@ -5,6 +5,14 @@
 # real `npm install` when bumping @chamber-19/desktop-toolkit (regenerating
 # package-lock.json with correct integrity hashes). Hand-editing the lockfile
 # has bitten sibling repos multiple times — this prevents that failure mode.
+#
+# Firewall note: the agent's runtime sandbox is firewalled and cannot reach
+# api.github.com / npm.pkg.github.com to authenticate `@chamber-19` package
+# reads. The firewall does NOT apply to this workflow (setup steps run before
+# the agent boots), so this job is the *real* verifier for any PR whose
+# install path can't be exercised in the sandbox — bumps to the toolkit pin,
+# lockfile regenerations, .npmrc tweaks, or backend dependency changes.
+# Keep the path triggers below in sync with that intent.
 name: Copilot Setup Steps
 
 on:
@@ -12,9 +20,17 @@ on:
   push:
     paths:
       - .github/workflows/copilot-setup-steps.yml
+      - frontend/package.json
+      - frontend/package-lock.json
+      - frontend/.npmrc
+      - backend/requirements.txt
   pull_request:
     paths:
       - .github/workflows/copilot-setup-steps.yml
+      - frontend/package.json
+      - frontend/package-lock.json
+      - frontend/.npmrc
+      - backend/requirements.txt
 
 jobs:
   copilot-setup-steps:
