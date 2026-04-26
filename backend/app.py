@@ -113,6 +113,8 @@ def api_open_project(req: OpenProjectRequest):
         register_file = marker.get("register_file", "")
         register_path = os.path.join(project_dir, register_file)
         register = open_register(register_path)
+        # NOTE: mutates `register` in place — adds a transient `_parsed`
+        # field to each drawing for view-only consumption.
         _enrich_drawings_with_parsed(register)
         add_recent(req.marker_path)
         return {

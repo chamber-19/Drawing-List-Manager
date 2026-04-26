@@ -7,6 +7,7 @@
 import { useMemo, useState } from "react";
 import { T } from "../tokens.js";
 import { Chevron, StatusGlyph } from "./glyphs.jsx";
+import { bandKeyFor } from "./bandKey.js";
 
 function NavSectionHeader({ children }) {
   return (
@@ -66,8 +67,8 @@ export default function NavTree({
   const tree = useMemo(() => {
     const byType = new Map();
     for (const d of register?.drawings || []) {
+      const { typeKey, bandKey } = bandKeyFor(d);
       const p = d._parsed;
-      const typeKey = p ? `${p.discipline}${p.type_digit}` : "??";
       if (!byType.has(typeKey)) {
         byType.set(typeKey, {
           typeKey,
@@ -79,7 +80,6 @@ export default function NavTree({
       }
       const t = byType.get(typeKey);
       t.count += 1;
-      const bandKey = p?.band ? `${p.band.start}-${p.band.end}` : "_unbanded";
       const bandLabel = p?.band?.label || "Unbanded";
       if (!t.bands.has(bandKey)) {
         t.bands.set(bandKey, {

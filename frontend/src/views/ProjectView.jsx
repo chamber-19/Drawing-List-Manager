@@ -19,15 +19,7 @@ import NavTree from "../workspace/NavTree.jsx";
 import BandCard from "../workspace/BandCard.jsx";
 import Inspector from "../workspace/Inspector.jsx";
 import ReconcileView from "../workspace/ReconcileView.jsx";
-
-function bandKeyFor(d) {
-  const p = d._parsed;
-  if (!p) return { typeKey: "??", bandKey: "_unbanded" };
-  return {
-    typeKey: `${p.discipline}${p.type_digit}`,
-    bandKey: p.band ? `${p.band.start}-${p.band.end}` : "_unbanded",
-  };
-}
+import { bandKeyFor } from "../workspace/bandKey.js";
 
 export default function ProjectView({ markerPath, onClose }) {
   const [marker, setMarker] = useState(null);
