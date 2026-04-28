@@ -6,9 +6,16 @@ updates:
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule: { interval: "weekly" }
+     ignore:
+      - dependency-name: "@chamber-19/desktop-toolkit"
+        # Same — pinned by hand, paired with cargo dep above.
   - package-ecosystem: "cargo"
     directory: "/frontend/src-tauri"
     schedule: { interval: "weekly" }
+    ignore:
+      - dependency-name: "desktop-toolkit"
+        # Pinned by hand alongside @chamber-19/desktop-toolkit npm bumps.
+        # See repo-specific instruction rule #6.
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule: { interval: "weekly" }
