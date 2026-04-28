@@ -3,15 +3,24 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule: { interval: "weekly" }
+    labels:
+      - "dependencies"
+      - "github-actions"
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule: { interval: "weekly" }
-     ignore:
+    labels:
+      - "dependencies"
+      - "javascript"
+    ignore:
       - dependency-name: "@chamber-19/desktop-toolkit"
-        # Same — pinned by hand, paired with cargo dep above.
+        # Pinned by hand, paired with cargo dep below.
   - package-ecosystem: "cargo"
     directory: "/frontend/src-tauri"
     schedule: { interval: "weekly" }
+    labels:
+      - "dependencies"
+      - "rust"
     ignore:
       - dependency-name: "desktop-toolkit"
         # Pinned by hand alongside @chamber-19/desktop-toolkit npm bumps.
@@ -19,3 +28,6 @@ updates:
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule: { interval: "weekly" }
+    labels:
+      - "dependencies"
+      - "python"
