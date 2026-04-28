@@ -1,33 +1,52 @@
+# Dependabot configuration
+#
+# Drawing List Manager is a Windows-only Tauri/NSIS app. The glib/rand ignores
+# cover Linux-only GTK transitive dependencies in the Tauri graph that are not
+# compiled into the shipped Windows installer.
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule: { interval: "weekly" }
+  - package-ecosystem: "cargo"
+    directory: "/frontend/src-tauri"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
-      - "github-actions"
+      - "rust"
+    ignore:
+      - dependency-name: "glib"
+        versions: ["0.x"]
+      - dependency-name: "rand"
+        versions: ["0.7.x"]
+      - dependency-name: "desktop-toolkit"
+        # Toolkit pins are bumped manually alongside the npm package.
+
   - package-ecosystem: "npm"
     directory: "/frontend"
-    schedule: { interval: "weekly" }
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "javascript"
     ignore:
       - dependency-name: "@chamber-19/desktop-toolkit"
-        # Pinned by hand, paired with cargo dep below.
-  - package-ecosystem: "cargo"
-    directory: "/frontend/src-tauri"
-    schedule: { interval: "weekly" }
-    labels:
-      - "dependencies"
-      - "rust"
-    ignore:
-      - dependency-name: "desktop-toolkit"
-        # Pinned by hand alongside @chamber-19/desktop-toolkit npm bumps.
-        # See repo-specific instruction rule #6.
+        # Toolkit pins are paired npm + Cargo review PRs.
+
   - package-ecosystem: "pip"
     directory: "/backend"
-    schedule: { interval: "weekly" }
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "python"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
