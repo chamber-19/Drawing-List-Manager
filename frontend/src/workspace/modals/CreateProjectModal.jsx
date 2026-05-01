@@ -77,6 +77,10 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
   async function submit(e) {
     e?.preventDefault?.();
     setError(null);
+    if (!projectName.trim()) {
+      setError("Project name is required.");
+      return;
+    }
     if (!PROJECT_NUMBER_RE.test(projectNumber.trim())) {
       setError("Project number must look like R3P-25074.");
       return;
@@ -108,7 +112,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
           <ModalButton onClick={onClose} disabled={busy}>
             Cancel
           </ModalButton>
-          <ModalButton primary onClick={submit} disabled={busy}>
+          <ModalButton primary onClick={submit} disabled={busy || !projectName.trim()}>
             {busy ? "Creating…" : "Create project"}
           </ModalButton>
         </>
@@ -125,7 +129,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
           />
         </div>
         <div>
-          <Label>Project name (optional)</Label>
+          <Label>Project name</Label>
           <input
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}

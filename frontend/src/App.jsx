@@ -44,28 +44,14 @@ function Header({ onClose, hasProject }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 14,
+        justifyContent: "space-between",
         padding: "12px 24px",
         borderBottom: `1px solid ${T.bd}`,
         background: T.bgEl,
         flexShrink: 0,
       }}
     >
-      <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-        <rect width="28" height="28" rx="6" fill={T.acc} />
-        <text
-          x="14"
-          y="19"
-          textAnchor="middle"
-          fill={T.tOn}
-          fontFamily="monospace"
-          fontWeight="700"
-          fontSize="9"
-        >
-          R3P
-        </text>
-      </svg>
-      <div>
+      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
         <div style={{ fontFamily: T.fDisp, fontSize: 16, color: T.t1, letterSpacing: "-0.01em" }}>
           Drawing List Manager
         </div>
@@ -76,6 +62,7 @@ function Header({ onClose, hasProject }) {
             color: T.t3,
             letterSpacing: "0.12em",
             textTransform: "uppercase",
+            marginTop: 2,
           }}
         >
           ROOT3POWER
@@ -86,7 +73,6 @@ function Header({ onClose, hasProject }) {
           type="button"
           onClick={onClose}
           style={{
-            marginLeft: "auto",
             background: "transparent",
             border: `1px solid ${T.bdSoft}`,
             color: T.t2,

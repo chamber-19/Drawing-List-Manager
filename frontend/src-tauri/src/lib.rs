@@ -41,15 +41,6 @@ fn get_backend_url(state: tauri::State<BackendState>) -> String {
 
 const BACKEND_ADDR: &str = "127.0.0.1:8001";
 
-/// Returns `true` when something is already listening on [`BACKEND_ADDR`].
-fn is_backend_running() -> bool {
-    std::net::TcpStream::connect_timeout(
-        &BACKEND_ADDR.parse().expect("invalid socket address"),
-        Duration::from_millis(300),
-    )
-    .is_ok()
-}
-
 // ── DLM constants ─────────────────────────────────────────────────────────
 
 /// Directory on the shared drive that contains `latest.json` and the installer.

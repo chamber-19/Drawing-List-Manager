@@ -106,12 +106,12 @@ export default function LandingView({ onOpen }) {
       <div style={{ display: "flex", gap: 16 }}>
         <ActionCard
           title="Open project"
-          subtitle="Browse to an existing .r3p-project.json marker."
+          subtitle="Browse to an existing Project Drawing List"
           onClick={handleOpen}
         />
         <ActionCard
           title="Create project"
-          subtitle="Start a new project register."
+          subtitle="Start a new Project Drawing List"
           onClick={() => setCreateOpen(true)}
         />
       </div>
@@ -146,7 +146,7 @@ export default function LandingView({ onOpen }) {
               borderRadius: T.r,
             }}
           >
-            No recent projects yet — use Open or Create above to get started.
+            No recent projects yet — click Open Project to map to an existing drawing list, or create a new one to get started.
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
