@@ -1,17 +1,19 @@
 # DLM Icon Proposals
 
-Five creative icon variants for the Drawing List Manager application, generated
-via the SVGMaker API. All icons are 512 × 512 SVG, suitable for conversion to
-the PNG / ICO sizes required by Tauri (`icons/32x32.png`, `icons/128x128.png`,
-`icons/128x128@2x.png`, `icons/icon.ico`).
+Five creative titleblock icon variants for the Drawing List Manager application,
+generated via the SVGMaker API. Every variant is centred on the **DLM titleblock**
+motif — the grid of cells that appear in the corner of an engineering drawing sheet —
+but each is styled completely differently. All icons are square SVG, suitable for
+conversion to the PNG / ICO sizes required by Tauri (`icons/32x32.png`,
+`icons/128x128.png`, `icons/128x128@2x.png`, `icons/icon.ico`).
 
 | File | Theme | Description |
 |------|-------|-------------|
-| `dlm-icon-1-blueprint.svg` | Blueprint / Compass | Dark navy background with a compass instrument on an architectural sheet and a gold "R3" revision badge |
-| `dlm-icon-2-stacked-sheets.svg` | Stacked Sheets | Three fanned drawing sheets with register lines, green checkmark, and amber revision tag |
-| `dlm-icon-3-title-block.svg` | Title Block | Classic engineering drawing border with a DLM title block grid in the corner |
-| `dlm-icon-4-monogram.svg` | DLM Monogram | Stylised "DLM" letterform drawn in technical line-work on an indigo/purple gradient |
-| `dlm-icon-5-layers.svg` | Revision Layers | Isometric floating layers tagged P1 / IFA / IFC representing drawing revision phases |
+| `dlm-icon-1-titleblock-dark.svg` | Dark Industrial | Charcoal background with electric-blue accents; classic A3 frame, thick outer border, and a detailed "DLM" titleblock grid in the lower-right |
+| `dlm-icon-2-titleblock-blueprint.svg` | Blueprint Line Art | White line art on deep navy; full blueprint-style titleblock with revision table, "R3P-001" drawing number, and cyan-glow border |
+| `dlm-icon-3-titleblock-minimal.svg` | Minimalist Swiss | Pure white, monochrome; ultra-clean Helvetica-style "DLM" bold in a single-strip titleblock — no decoration, mathematical precision |
+| `dlm-icon-4-titleblock-vintage.svg` | Vintage Engraving | Aged parchment background with sepia ink; Victorian-era double border, ornate corner brackets, serif "D.L.M." lettering, and a compass rose |
+| `dlm-icon-5-titleblock-neon.svg` | Neon Futuristic | Black background; glowing teal/cyan border frame, magenta "DLM" neon lettering, amber revision cells (IFC / IFA / P1), scanline HUD grid |
 
 ## Converting to Tauri bundle icons
 
