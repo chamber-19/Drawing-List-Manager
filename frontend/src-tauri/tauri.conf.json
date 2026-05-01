@@ -42,6 +42,9 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "publisher": "ROOT3POWER ENGINEERING",
+    "shortDescription": "R3P Drawing List Manager — project drawing register tool",
+    "longDescription": "A standalone desktop application for managing project drawing registers at ROOT3POWER ENGINEERING. Supports R3P numbering, revisions, and branded Excel output.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
