@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **App icons — 5 SVG proposals** added to `icons/proposals/` for DLM
+  (blueprint/compass, stacked sheets, title block, DLM monogram, and isometric
+  revision layers). Generated via the SVGMaker API. See
+  `icons/proposals/README.md` for conversion instructions once a design is
+  chosen.
+
 - **Slice 2 — editing unlocked.** Workspace mutations are wired end-to-end:
   - Inline editing of a drawing's description, notes, status, and set
     from the inspector (single-mode).
