@@ -16,6 +16,10 @@ frontend/dist/
 frontend/src-tauri/target/
 frontend/src-tauri/gen/
 
+# NSIS installer assets synced by desktop-toolkit-sync-installer-assets (prebuild).
+# These are generated from @chamber-19/desktop-toolkit — do not commit them.
+frontend/src-tauri/installer/
+
 # Rust
 Cargo.lock
 
