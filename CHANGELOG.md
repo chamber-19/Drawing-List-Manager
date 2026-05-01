@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **App icons generated** — `frontend/src-tauri/icons/` now contains all
+  required Tauri icon sizes (32×32, 128×128, 128×128@2x PNGs, ICO, and
+  platform-specific sets) generated from `icon.svg` via `tauri icon`.
+  This was the missing piece that caused Tauri to fall back to stale or
+  wrong icons when building the NSIS installer.
+
+- **NSIS installer metadata** — `tauri.conf.json` `bundle` section now
+  declares `publisher`, `shortDescription`, and `longDescription` so that
+  Windows Add/Remove Programs and the installer wizard show correct
+  "Drawing List Manager" / "ROOT3POWER ENGINEERING" text instead of
+  blank or inherited values.
+
 - **App icons — 5 SVG proposals** added to `icons/proposals/` for DLM
   (blueprint/compass, stacked sheets, title block, DLM monogram, and isometric
   revision layers). Generated via the SVGMaker API. See
@@ -81,6 +93,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   logic. Future schema changes chain a v3→v4 step.
 
 ### Fixed
+
+- **Installer showed "Transmittal Builder" branding** — root-cause was
+  a missing `frontend/src-tauri/icons/` directory; Tauri was picking up
+  stale icons from a prior Transmittal Builder build on the same machine.
+  Fixed by:
+  1. Generating and committing DLM icons from `icon.svg`.
+  2. Adding `publisher`, `shortDescription`, and `longDescription` to
+     `tauri.conf.json` so all installer text is DLM-specific.
+  3. Adding `frontend/src-tauri/installer/` to `.gitignore` (the
+     `desktop-toolkit-sync-installer-assets` prebuild script already
+     documented this requirement; DLM's `.gitignore` was simply missing
+     the entry — without it, stale TB installer BMPs could persist in a
+     developer's working tree across tool migrations).
 
 - `backend/requirements.txt` now lists `httpx` and `pytest`. The
   `tests/test_app.py` suite imports `fastapi.testclient.TestClient`,
