@@ -39,6 +39,10 @@ _MAX_RECENT = 10
 # Marker file name placed inside the project folder.
 MARKER_FILENAME = ".r3p-project.json"
 
+# Current schema version for the marker file. Independent of the register
+# schema version — the two files version independently.
+MARKER_SCHEMA_VERSION = 1
+
 
 # Default sub-paths for a new project marker. Always present in the
 # written marker; user-supplied values in `paths` override on a per-key
@@ -113,7 +117,7 @@ def create_project(
     merged_paths = {**DEFAULT_PROJECT_PATHS, **(paths or {})}
 
     marker: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": MARKER_SCHEMA_VERSION,
         "project_number": project_number,
         "project_name": project_name,
         "created_at": _now_iso(),
@@ -133,7 +137,14 @@ def read_marker(marker_path: str) -> dict[str, Any]:
     if not os.path.isfile(marker_path):
         raise FileNotFoundError(f"Project marker not found: {marker_path}")
     with open(marker_path, "r", encoding="utf-8") as fh:
-        return json.load(fh)
+        marker = json.load(fh)
+    version = marker.get("schema_version", 1)
+    if version > MARKER_SCHEMA_VERSION:
+        raise ValueError(
+            f"Marker file is schema_version {version}; this version of DLM supports up to "
+            f"{MARKER_SCHEMA_VERSION}. Please update DLM to open this project."
+        )
+    return marker
 
 
 def resolve_paths(marker: dict[str, Any], marker_path: str) -> dict[str, str]:

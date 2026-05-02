@@ -186,6 +186,8 @@ def import_excel(path: str) -> dict[str, Any]:
         if m:
             project_number = m.group(1).upper()
 
+    # v1 here is intentional — this synthetic dict is the entry point for
+    # migrate_register() which upgrades to current; never written to disk as v1
     register_v1: dict[str, Any] = {
         "schema_version": 1,
         "project_number": project_number,

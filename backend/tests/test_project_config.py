@@ -1,9 +1,12 @@
 """Tests for core/project_config.py."""
 from __future__ import annotations
 
+import json
 import os
 import sys
 import tempfile
+
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -79,3 +82,42 @@ class TestCreateProject:
         assert marker["paths"]["index_xlsx"] == "Index/list.xlsx"
         # Untouched keys retain defaults.
         assert marker["paths"]["pdfs_dir"] == "Drawings/PDF"
+
+
+class TestReadMarkerVersionGuard:
+    def test_future_version_raises(self, tmp_path):
+        from core.project_config import read_marker, MARKER_SCHEMA_VERSION
+
+        marker_path = tmp_path / ".r3p-project.json"
+        future_version = MARKER_SCHEMA_VERSION + 1
+        marker_path.write_text(
+            json.dumps({"schema_version": future_version, "project_number": "R3P-99999"}),
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match=f"schema_version {future_version}") as exc_info:
+            read_marker(str(marker_path))
+        assert str(MARKER_SCHEMA_VERSION) in str(exc_info.value)
+        assert "Please update DLM" in str(exc_info.value)
+
+    def test_current_version_ok(self, tmp_path):
+        from core.project_config import read_marker, MARKER_SCHEMA_VERSION
+
+        marker_path = tmp_path / ".r3p-project.json"
+        marker_path.write_text(
+            json.dumps({"schema_version": MARKER_SCHEMA_VERSION, "project_number": "R3P-99999"}),
+            encoding="utf-8",
+        )
+        marker = read_marker(str(marker_path))
+        assert marker["project_number"] == "R3P-99999"
+
+    def test_missing_version_defaults_to_1(self, tmp_path):
+        from core.project_config import read_marker
+
+        marker_path = tmp_path / ".r3p-project.json"
+        marker_path.write_text(
+            json.dumps({"project_number": "R3P-99999"}),
+            encoding="utf-8",
+        )
+        # Should not raise; pre-versioning files are accepted as version 1.
+        marker = read_marker(str(marker_path))
+        assert marker["project_number"] == "R3P-99999"
