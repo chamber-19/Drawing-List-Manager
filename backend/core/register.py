@@ -65,7 +65,7 @@ def _now_iso() -> str:
 
 
 def new_register(project_number: str, project_name: str = "") -> dict[str, Any]:
-    """Return a fresh empty register (schema_version 2)."""
+    """Return a fresh empty register at the current SCHEMA_VERSION."""
     return {
         "schema_version": SCHEMA_VERSION,
         "project_number": project_number,
@@ -86,6 +86,11 @@ def open_register(path: str) -> dict[str, Any]:
         data = json.load(fh)
 
     version = data.get("schema_version", 1)
+    if version > SCHEMA_VERSION:
+        raise ValueError(
+            f"Register file is schema_version {version}; this version of DLM supports up to "
+            f"{SCHEMA_VERSION}. Please update DLM to open this project."
+        )
     if version < SCHEMA_VERSION:
         data = migrate_register(data)
         # Persist the migrated register back to disk.

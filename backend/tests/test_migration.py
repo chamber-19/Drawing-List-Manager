@@ -188,3 +188,37 @@ class TestMigrateV2ToV3:
             assert actual_d["superseded"] == expected_d["superseded"], f"{dn}: superseded mismatch"
             assert actual_d["set"] == expected_d["set"], f"{dn}: set mismatch"
             assert actual_d["status"] == expected_d["status"], f"{dn}: status mismatch"
+
+
+class TestOpenRegisterVersionGuard:
+    def test_future_version_raises(self, tmp_path):
+        from core.register import open_register, SCHEMA_VERSION
+
+        reg_path = tmp_path / "test.r3pdrawings.json"
+        future_version = SCHEMA_VERSION + 1
+        reg_path.write_text(
+            json.dumps({"schema_version": future_version, "project_number": "R3P-99999", "drawings": []}),
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match=f"schema_version {future_version}") as exc_info:
+            open_register(str(reg_path))
+        assert str(SCHEMA_VERSION) in str(exc_info.value)
+        assert "Please update DLM" in str(exc_info.value)
+
+    def test_current_version_ok(self, tmp_path):
+        from core.register import open_register, SCHEMA_VERSION
+
+        reg_path = tmp_path / "test.r3pdrawings.json"
+        reg_path.write_text(
+            json.dumps({
+                "schema_version": SCHEMA_VERSION,
+                "project_number": "R3P-99999",
+                "project_name": "",
+                "current_phase": "IFA",
+                "updated_at": "2026-01-01T00:00:00Z",
+                "drawings": [],
+            }),
+            encoding="utf-8",
+        )
+        reg = open_register(str(reg_path))
+        assert reg["project_number"] == "R3P-99999"
