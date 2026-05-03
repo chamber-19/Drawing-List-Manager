@@ -98,12 +98,12 @@ def create_project(
     dict
         The marker dict that was written to disk.
     """
-    from core.register import new_register, save_register, build_register_filename, _PROJECT_NUMBER_RE
+    from core.register import new_register, save_register, build_register_filename, validate_project_number
 
     os.makedirs(folder, exist_ok=True)
 
     # Validate project_number format.
-    if not _PROJECT_NUMBER_RE.match(project_number):
+    if not validate_project_number(project_number):
         raise ValueError(
             f"project_number {project_number!r} is invalid. "
             "Must match R3P-<digits>, e.g. 'R3P-25074'."

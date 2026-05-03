@@ -89,6 +89,11 @@ def build_register_filename(project_number: str, project_name: str) -> str:
     return f"{project_number}-DrawingIndex-Metadata.json"
 
 
+def validate_project_number(project_number: str) -> bool:
+    """Return True if *project_number* matches the required ``R3P-<digits>`` format."""
+    return bool(_PROJECT_NUMBER_RE.match(project_number))
+
+
 def find_or_migrate_register(
     project_dir: str, project_number: str, project_name: str
 ) -> str:
@@ -125,8 +130,10 @@ def find_or_migrate_register(
     legacy_path = os.path.join(safe_dir, legacy_filename)
 
     # Verify both paths are confined to the project directory.
+    # Use os.path.realpath (not abspath) to follow symlinks when checking
+    # confinement, preventing symlink-based escapes within the directory.
     for path in (new_path, legacy_path):
-        if os.path.dirname(os.path.abspath(path)) != safe_dir:
+        if os.path.dirname(os.path.realpath(path)) != safe_dir:
             raise ValueError(
                 f"Computed register path {path!r} escapes the project directory."
             )
