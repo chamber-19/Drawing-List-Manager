@@ -196,7 +196,7 @@ export default function FolderScanPanel({ folderScan, onRescan, rescanning }) {
       {hasDrawingsMissingPdf && (
         <div>
           <SectionHeader
-            label={`Drawings without PDF (${drawings_without_pdfs.length})`}
+            label="Drawings without PDF"
             count={drawings_without_pdfs.length}
             color={T.warn}
             expanded={openSection === "noPdf"}
@@ -221,7 +221,7 @@ export default function FolderScanPanel({ folderScan, onRescan, rescanning }) {
       {hasOrphanPdfs && (
         <div>
           <SectionHeader
-            label={`PDFs without drawing (${pdfs_without_drawings.length})`}
+            label="PDFs without drawing"
             count={pdfs_without_drawings.length}
             color={T.info}
             expanded={openSection === "orphanPdf"}

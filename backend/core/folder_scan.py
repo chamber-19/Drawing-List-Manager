@@ -65,7 +65,7 @@ class FolderScanResult(TypedDict):
 
 
 def _find_pdf_subdir(drawings_root: str) -> str | None:
-    """Return the absolute path of the pdf sub-directory in *drawings_root*.
+    """Return the absolute path of the pdf subdirectory in *drawings_root*.
 
     Accepts any case variant of ``pdf`` or ``pdfs`` (e.g. ``PDF``, ``Pdf``,
     ``PDFs``).  Returns the first match found, or ``None`` if absent.
