@@ -217,7 +217,8 @@ def api_save_register(req: SaveRegisterRequest):
 
         save_register(register_path, register)
         # Regenerate Excel alongside the register file.
-        xlsx_path = os.path.splitext(register_path)[0] + ".xlsx"
+        from pathlib import Path
+        xlsx_path = str(Path(register_path).with_suffix(".xlsx"))
         export_full(xlsx_path, register)
         return {"success": True}
     except HTTPException:

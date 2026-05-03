@@ -53,6 +53,10 @@ SCHEMA_VERSION = 3
 # Legacy register filename suffix.  Old projects used ``{project_number}.r3pdrawings.json``.
 REGISTER_LEGACY_FILENAME = ".r3pdrawings.json"
 
+# Compiled regex for valid project numbers.  Shared by filename builder and
+# migration helper so both enforce the same rule.
+_PROJECT_NUMBER_RE = re.compile(r"^R3P-\d+$")
+
 VALID_SETS = {"P&C", "Physicals"}
 
 VALID_PHASES = {"IFA", "IFC", "IFR", "IFB", "IFF", "IFRef"}
@@ -102,7 +106,6 @@ def find_or_migrate_register(
     ``R3P-<digits>`` format so that the value cannot introduce path traversal
     when it is incorporated into a filename.
     """
-    _PROJECT_NUMBER_RE = re.compile(r"^R3P-\d+$")
     if not _PROJECT_NUMBER_RE.match(project_number):
         raise ValueError(
             f"project_number {project_number!r} is invalid. "
@@ -113,14 +116,23 @@ def find_or_migrate_register(
     # or symlink components are expanded before we construct child paths.
     safe_dir = os.path.realpath(project_dir)
 
-    new_filename = build_register_filename(project_number, project_name)
+    # Use os.path.basename to ensure the filename component contains no path
+    # separators even if the caller somehow passed a crafted value.
+    new_filename = os.path.basename(build_register_filename(project_number, project_name))
+    legacy_filename = os.path.basename(f"{project_number}{REGISTER_LEGACY_FILENAME}")
+
     new_path = os.path.join(safe_dir, new_filename)
+    legacy_path = os.path.join(safe_dir, legacy_filename)
+
+    # Verify both paths are confined to the project directory.
+    for path in (new_path, legacy_path):
+        if os.path.dirname(os.path.abspath(path)) != safe_dir:
+            raise ValueError(
+                f"Computed register path {path!r} escapes the project directory."
+            )
 
     if os.path.isfile(new_path):
         return new_path
-
-    legacy_filename = f"{project_number}{REGISTER_LEGACY_FILENAME}"
-    legacy_path = os.path.join(safe_dir, legacy_filename)
 
     if os.path.isfile(legacy_path):
         os.rename(legacy_path, new_path)
