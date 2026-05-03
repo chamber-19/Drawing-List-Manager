@@ -70,6 +70,29 @@ class TestCreateProject:
         assert marker["paths"]["drawings_dir"] == DEFAULT_PROJECT_PATHS["drawings_dir"]
         assert marker["paths"]["pdfs_dir"] == DEFAULT_PROJECT_PATHS["pdfs_dir"]
 
+    def test_register_uses_new_filename_pattern(self, tmp_path):
+        from core.project_config import create_project
+        from core.register import build_register_filename
+
+        marker = create_project(
+            folder=str(tmp_path),
+            project_number="R3P-25074",
+            project_name="Grid Upgrade",
+        )
+        expected_filename = build_register_filename("R3P-25074", "Grid Upgrade")
+        assert marker["register_file"] == expected_filename
+        assert (tmp_path / expected_filename).is_file()
+
+    def test_invalid_project_number_raises(self, tmp_path):
+        from core.project_config import create_project
+
+        with pytest.raises(ValueError, match="R3P-"):
+            create_project(
+                folder=str(tmp_path),
+                project_number="INVALID",
+                project_name="Test",
+            )
+
     def test_user_paths_override_defaults(self, tmp_path):
         from core.project_config import create_project
 

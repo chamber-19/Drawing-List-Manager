@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Self-identifying register filename.** New projects now write the register
+  as `{project_number}-{sanitized_name}-DrawingIndex-Metadata.json` (e.g.
+  `R3P-25074-Substation-Upgrade-DrawingIndex-Metadata.json`) instead of the
+  old `{project_number}.r3pdrawings.json`.  The filename is frozen at project
+  creation and never changes when metadata is renamed later.
+- `build_register_filename(project_number, project_name)` in
+  `core/register.py` — builds the canonical register filename with name
+  sanitisation (non-alphanumeric characters replaced and collapsed to
+  hyphens).
+- `find_or_migrate_register(project_dir, project_number, project_name)` in
+  `core/register.py` — resolves the register path, silently renaming a legacy
+  `{project_number}.r3pdrawings.json` file to the new pattern on first open
+  and logging the rename at INFO level.
+- `REGISTER_LEGACY_FILENAME = ".r3pdrawings.json"` constant in
+  `core/register.py` for legacy-detection code.
+- `project_number` is now validated against `^R3P-\d+$` at project creation
+  time; `create_project()` raises `ValueError` for invalid formats.
+- ADR `docs/decisions/2026-05-03-register-filename-pattern.md` documenting
+  the new pattern, frozen-at-creation rule, silent auto-rename, and
+  sanitisation rule.
+
+### Added
+
 - **App icons generated** — `frontend/src-tauri/icons/` now contains all
   required Tauri icon sizes (32×32, 128×128, 128×128@2x PNGs, ICO, and
   platform-specific sets) generated from `icon.svg` via `tauri icon`.
