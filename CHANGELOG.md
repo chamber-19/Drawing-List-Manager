@@ -29,9 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ADR `docs/decisions/2026-05-03-register-filename-pattern.md` documenting
   the new pattern, frozen-at-creation rule, silent auto-rename, and
   sanitisation rule.
-
-### Added
-
 - **App icons generated** — `frontend/src-tauri/icons/` now contains all
   required Tauri icon sizes (32×32, 128×128, 128×128@2x PNGs, ICO, and
   platform-specific sets) generated from `icon.svg` via `tauri icon`.

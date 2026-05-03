@@ -97,15 +97,30 @@ def find_or_migrate_register(
     2. Legacy ``{project_number}.r3pdrawings.json`` exists → rename it in place
        to the new pattern, log the rename, return the new path.
     3. Neither exists → raise ``FileNotFoundError``.
+
+    Raises ``ValueError`` if *project_number* is not in the expected
+    ``R3P-<digits>`` format so that the value cannot introduce path traversal
+    when it is incorporated into a filename.
     """
+    _PROJECT_NUMBER_RE = re.compile(r"^R3P-\d+$")
+    if not _PROJECT_NUMBER_RE.match(project_number):
+        raise ValueError(
+            f"project_number {project_number!r} is invalid. "
+            "Must match R3P-<digits>, e.g. 'R3P-25074'."
+        )
+
+    # Resolve project_dir to an absolute, canonical path so that any relative
+    # or symlink components are expanded before we construct child paths.
+    safe_dir = os.path.realpath(project_dir)
+
     new_filename = build_register_filename(project_number, project_name)
-    new_path = os.path.join(project_dir, new_filename)
+    new_path = os.path.join(safe_dir, new_filename)
 
     if os.path.isfile(new_path):
         return new_path
 
     legacy_filename = f"{project_number}{REGISTER_LEGACY_FILENAME}"
-    legacy_path = os.path.join(project_dir, legacy_filename)
+    legacy_path = os.path.join(safe_dir, legacy_filename)
 
     if os.path.isfile(legacy_path):
         os.rename(legacy_path, new_path)
@@ -115,7 +130,7 @@ def find_or_migrate_register(
         return new_path
 
     raise FileNotFoundError(
-        f"No register file found in {project_dir!r}. "
+        f"No register file found in {safe_dir!r}. "
         f"Expected {new_filename!r} or legacy {legacy_filename!r}."
     )
 
