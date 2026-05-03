@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Autodetect drawings at project creation.** When a user creates a new
+  project and nominates a drawings folder, DLM automatically scans that
+  folder for `.dwg` files and a `pdf/` subdirectory for matching `.pdf`
+  files. The drawing list is pre-populated from the scan results; matched
+  PDFs are linked to their drawings. A "Needs attention" panel surfaces
+  drawings without PDFs, orphan PDFs, and a note when no `pdf/`
+  subdirectory is present.
+  - `core/folder_scan.py` — `scan_drawings_folder(drawings_root)` performs
+    a top-level-only scan, matches by filename stem (case-insensitive), and
+    returns a `FolderScanResult` with `drawings`, `pdfs`, `matched`,
+    `drawings_without_pdfs`, `pdfs_without_drawings`, and `pdf_dir_found`.
+  - `POST /api/project/create` now accepts an optional `drawings_root`
+    parameter; if the path exists and contains `.dwg` files the register is
+    pre-populated automatically.
+  - `POST /api/project/folder-scan` — re-scans the project's `drawings_dir`,
+    adds any newly discovered drawings to the register, and updates the
+    `pdf_path` on existing entries.
+  - `frontend/src/workspace/FolderScanPanel.jsx` — collapsible
+    "Needs attention" section shown in the drawings view; hidden when both
+    mismatch lists are empty.
+  - `Create project` modal now has an optional **Drawings folder** picker so
+    users can point to an existing folder of `.dwg` files at creation time.
+  - ADR `docs/decisions/2026-05-03-folder-scan-design.md` documenting the
+    top-level-only, stem-matching, and informational-mismatch design
+    decisions.
+
+### Added
+
 - **Self-identifying register filename.** New projects now write the register
   as `{project_number}-{sanitized_name}-DrawingIndex-Metadata.json` (e.g.
   `R3P-25074-Substation-Upgrade-DrawingIndex-Metadata.json`) instead of the

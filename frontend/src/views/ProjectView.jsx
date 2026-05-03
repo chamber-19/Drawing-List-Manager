@@ -27,6 +27,7 @@ import NavTree from "../workspace/NavTree.jsx";
 import BandCard from "../workspace/BandCard.jsx";
 import Inspector from "../workspace/Inspector.jsx";
 import ReconcileView from "../workspace/ReconcileView.jsx";
+import FolderScanPanel from "../workspace/FolderScanPanel.jsx";
 import { Toast, useToast } from "../workspace/Toast.jsx";
 import { bandKeyFor } from "../workspace/bandKey.js";
 import * as ops from "../operations.js";
@@ -80,6 +81,8 @@ export default function ProjectView({ markerPath, onClose, registerCloseGate }) 
   const [marker, setMarker] = useState(null);
   const [register, setRegister] = useState(null);
   const [scan, setScan] = useState(null);
+  const [folderScan, setFolderScan] = useState(null);
+  const [rescanning, setRescanning] = useState(false);
   const [activeView, setActiveView] = useState("drawings");
   const [selectedBand, setSelectedBand] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
@@ -104,13 +107,19 @@ export default function ProjectView({ markerPath, onClose, registerCloseGate }) 
     setMarker(null);
     setRegister(null);
     setScan(null);
+    setFolderScan(null);
     setError(null);
-    Promise.all([api.openProject(markerPath), api.scanProject(markerPath)])
-      .then(([open, scanRes]) => {
+    Promise.all([
+      api.openProject(markerPath),
+      api.scanProject(markerPath),
+      api.folderScan(markerPath).catch(() => null),
+    ])
+      .then(([open, scanRes, folderScanRes]) => {
         if (cancelled) return;
         setMarker(open.marker);
         setRegister(open.register);
         setScan(scanRes);
+        if (folderScanRes?.folder_scan) setFolderScan(folderScanRes.folder_scan);
       })
       .catch((e) => {
         if (!cancelled) setError(e.message || String(e));
@@ -222,6 +231,25 @@ export default function ProjectView({ markerPath, onClose, registerCloseGate }) 
       setScan(s);
     } catch (e) {
       setError(e.message || String(e));
+    }
+  }
+
+  async function handleFolderRescan() {
+    setRescanning(true);
+    try {
+      const res = await api.folderScan(markerPath);
+      if (res?.folder_scan) setFolderScan(res.folder_scan);
+      if (res?.register) {
+        // Register was updated with any newly discovered drawings — reload
+        // using the open endpoint so we get a fully enriched copy.
+        const open = await api.openProject(markerPath);
+        setRegister(open.register);
+      }
+      showToast("Folder re-scanned", "ok");
+    } catch (e) {
+      showToast(`Re-scan failed: ${e.message}`, "err");
+    } finally {
+      setRescanning(false);
     }
   }
 
@@ -438,6 +466,11 @@ export default function ProjectView({ markerPath, onClose, registerCloseGate }) 
               onMarkSuperseded={(dns) => setSupersedeTargets(dns)}
               onAdvanceRev={() => setAdvanceOpen(true)}
               onSetStatus={() => setSetStatusOpen(true)}
+            />
+            <FolderScanPanel
+              folderScan={folderScan}
+              onRescan={handleFolderRescan}
+              rescanning={rescanning}
             />
           </div>
         )}

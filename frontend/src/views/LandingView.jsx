@@ -65,8 +65,8 @@ export default function LandingView({ onOpen }) {
     if (path) onOpen(path);
   }
 
-  async function handleCreate({ folder, project_number, project_name }) {
-    const result = await api.createProject(folder, project_number, project_name);
+  async function handleCreate({ folder, project_number, project_name, drawings_root }) {
+    const result = await api.createProject(folder, project_number, project_name, {}, drawings_root || "");
     setCreateOpen(false);
     if (result?.marker_path) onOpen(result.marker_path);
   }

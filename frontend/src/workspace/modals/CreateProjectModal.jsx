@@ -56,6 +56,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
   const [projectNumber, setProjectNumber] = useState("R3P-");
   const [projectName, setProjectName] = useState("");
   const [folder, setFolder] = useState("");
+  const [drawingsFolder, setDrawingsFolder] = useState("");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -64,6 +65,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
       setProjectNumber("R3P-");
       setProjectName("");
       setFolder("");
+      setDrawingsFolder("");
       setError(null);
       setBusy(false);
     }
@@ -72,6 +74,11 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
   async function browse() {
     const f = await pickFolder();
     if (f) setFolder(f);
+  }
+
+  async function browseDrawings() {
+    const f = await pickFolder();
+    if (f) setDrawingsFolder(f);
   }
 
   async function submit(e) {
@@ -95,6 +102,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
         folder: folder.trim(),
         project_number: projectNumber.trim(),
         project_name: projectName.trim(),
+        drawings_root: drawingsFolder.trim(),
       });
     } catch (err) {
       setError(err?.message || String(err));
@@ -149,6 +157,38 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
             <button
               type="button"
               onClick={browse}
+              style={{
+                background: T.bgEl,
+                border: `1px solid ${T.bd}`,
+                color: T.t1,
+                padding: "7px 14px",
+                borderRadius: T.rSm,
+                cursor: "pointer",
+                fontFamily: T.fMono,
+                fontSize: 11,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Browse…
+            </button>
+          </div>
+        </div>
+        <div>
+          <Label hint="optional — browse to an existing drawings folder to auto-populate">
+            Drawings folder
+          </Label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={drawingsFolder}
+              onChange={(e) => setDrawingsFolder(e.target.value)}
+              placeholder="Leave blank to set up later"
+              style={{ ...fieldStyle(), fontFamily: T.fMono, fontSize: 12, color: T.t2 }}
+            />
+            <button
+              type="button"
+              onClick={browseDrawings}
               style={{
                 background: T.bgEl,
                 border: `1px solid ${T.bd}`,

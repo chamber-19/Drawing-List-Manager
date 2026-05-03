@@ -54,15 +54,18 @@ export const api = {
     post("/api/project/open", { marker_path: markerPath }),
   scanProject: (markerPath) =>
     post("/api/project/scan", { marker_path: markerPath }),
+  folderScan: (markerPath) =>
+    post("/api/project/folder-scan", { marker_path: markerPath }),
   validateRegister: (markerPath) =>
     get(`/api/register/validate?marker_path=${encodeURIComponent(markerPath)}`),
   saveRegister: (markerPath, register) =>
     post("/api/register/save", { marker_path: markerPath, register }),
-  createProject: (folder, projectNumber, projectName = "", paths = {}) =>
+  createProject: (folder, projectNumber, projectName = "", paths = {}, drawingsRoot = "") =>
     post("/api/project/create", {
       folder,
       project_number: projectNumber,
       project_name: projectName,
       paths,
+      drawings_root: drawingsRoot,
     }),
 };

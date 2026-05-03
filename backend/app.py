@@ -32,10 +32,12 @@ from core.excel_export import export_full
 from core.project_config import (
     create_project,
     read_marker,
+    resolve_paths,
     add_recent,
     list_recent,
 )
 from core.project_scan import scan_project
+from core.folder_scan import scan_drawings_folder
 from core.drawing_number import parse as parse_drawing_number, DrawingNumberError
 from core.standards import find_band
 
@@ -70,6 +72,7 @@ class CreateProjectRequest(BaseModel):
     project_number: str
     project_name: str = ""
     paths: dict[str, str] = {}
+    drawings_root: str = ""  # optional: absolute path to scan for .dwg files at creation
 
 
 class OpenProjectRequest(BaseModel):
@@ -77,6 +80,10 @@ class OpenProjectRequest(BaseModel):
 
 
 class ScanProjectRequest(BaseModel):
+    marker_path: str
+
+
+class FolderScanRequest(BaseModel):
     marker_path: str
 
 
@@ -103,11 +110,129 @@ def api_create_project(req: CreateProjectRequest):
         )
         from core.project_config import MARKER_FILENAME
         marker_path = os.path.abspath(os.path.join(req.folder, MARKER_FILENAME))
-        return {"success": True, "marker": marker, "marker_path": marker_path}
+
+        # Determine the drawings root: prefer explicitly supplied path, then
+        # resolve the drawings_dir from the marker.
+        drawings_root = (req.drawings_root or "").strip()
+        if not drawings_root:
+            resolved = resolve_paths(marker, marker_path)
+            drawings_root = resolved.get("drawings_dir", "")
+
+        folder_scan = None
+        if drawings_root and os.path.isdir(drawings_root):
+            folder_scan = scan_drawings_folder(drawings_root)
+            if folder_scan["drawings"]:
+                # Populate the register with the scanned drawings.
+                project_dir = os.path.dirname(marker_path)
+                register_path = find_or_migrate_register(
+                    project_dir,
+                    marker.get("project_number", ""),
+                    marker.get("project_name", ""),
+                )
+                register = open_register(register_path)
+                _populate_register_from_scan(register, folder_scan)
+                save_register(register_path, register)
+
+        return {
+            "success": True,
+            "marker": marker,
+            "marker_path": marker_path,
+            "folder_scan": folder_scan,
+        }
     except FileExistsError as e:
         raise HTTPException(409, str(e))
     except Exception as e:
         raise HTTPException(500, f"Failed to create project: {e}")
+
+
+def _drawing_entry_from_file(file_info: dict, pdf_info: dict | None, drawings_root: str) -> dict:
+    """Build a minimal valid drawing register entry from a scanned DWG file.
+
+    Parameters
+    ----------
+    file_info:
+        FileInfo dict from folder_scan (filename, stem, path).
+    pdf_info:
+        Matching FileInfo for the PDF, or None.
+    drawings_root:
+        Absolute path to the drawings root, used to build relative paths.
+    """
+    # pdf_path is relative to drawings_root and includes the pdf sub-dir name.
+    pdf_path: str | None = None
+    if pdf_info is not None:
+        try:
+            pdf_path = os.path.relpath(pdf_info["path"], drawings_root)
+        except ValueError:
+            pdf_path = pdf_info["path"]
+
+    return {
+        "drawing_number": file_info["stem"],
+        "description": "",
+        "set": "P&C",
+        "status": "NOT CREATED YET",
+        "notes": None,
+        "superseded": False,
+        "revisions": [],
+        # File-tracking fields (transparent to validate_register).
+        "filename": file_info["filename"],
+        "dwg_path": file_info["filename"],  # top-level, so just the filename
+        "pdf_path": pdf_path,
+    }
+
+
+def _populate_register_from_scan(register: dict, folder_scan: dict) -> None:
+    """Add scanned drawings to *register* in-place.
+
+    Existing register entries whose ``drawing_number`` matches a scanned
+    .dwg stem are updated with file-tracking fields (``filename``,
+    ``dwg_path``, ``pdf_path``) but are otherwise left unchanged.
+
+    New drawings (stems not already in the register) are appended as
+    minimal entries.
+    """
+    drawings_root = folder_scan["drawings_root"]
+
+    # Build a lookup of existing drawing_numbers (case-insensitive).
+    existing_dns: dict[str, dict] = {
+        d["drawing_number"].lower(): d for d in register.get("drawings", [])
+    }
+
+    # Build pdf lookup by stem (case-insensitive).
+    pdf_by_stem: dict[str, dict] = {}
+    for pair in folder_scan.get("matched", []):
+        pdf_by_stem[pair["drawing"]["stem"].lower()] = pair["pdf"]
+    for d_info in folder_scan.get("drawings_without_pdfs", []):
+        pdf_by_stem.setdefault(d_info["stem"].lower(), None)  # type: ignore[arg-type]
+
+    all_dwg_infos: list[dict] = (
+        [pair["drawing"] for pair in folder_scan.get("matched", [])]
+        + folder_scan.get("drawings_without_pdfs", [])
+    )
+
+    new_entries: list[dict] = []
+    for dwg_info in all_dwg_infos:
+        stem_lower = dwg_info["stem"].lower()
+        pdf_info = pdf_by_stem.get(stem_lower)
+
+        if stem_lower in existing_dns:
+            # Update file-tracking fields on the existing entry.
+            entry = existing_dns[stem_lower]
+            entry["filename"] = dwg_info["filename"]
+            entry["dwg_path"] = dwg_info["filename"]
+            if pdf_info is not None:
+                try:
+                    entry["pdf_path"] = os.path.relpath(pdf_info["path"], drawings_root)
+                except ValueError:
+                    entry["pdf_path"] = pdf_info["path"]
+            else:
+                entry.setdefault("pdf_path", None)
+        else:
+            new_entries.append(
+                _drawing_entry_from_file(dwg_info, pdf_info, drawings_root)
+            )
+
+    register.setdefault("drawings", [])
+    register["drawings"].extend(new_entries)
 
 
 @app.post("/api/project/open")
@@ -154,6 +279,46 @@ def api_scan_project(req: ScanProjectRequest):
         raise HTTPException(404, str(e))
     except Exception as e:
         raise HTTPException(500, f"Failed to scan project: {e}")
+
+
+@app.post("/api/project/folder-scan")
+def api_folder_scan(req: FolderScanRequest):
+    """Scan the project's drawings folder for .dwg/.pdf files and update register.
+
+    Re-runs scan_drawings_folder() against the resolved drawings_dir path from
+    the project marker.  Any new .dwg files found are added to the register as
+    minimal entries.  Existing entries are updated with current pdf_path.
+    Drawings that have disappeared from disk are NOT removed (that requires a
+    separate user-initiated workflow).
+
+    Returns the FolderScanResult so the frontend can update the needs-attention
+    panel without a full project reload.
+    """
+    try:
+        marker = read_marker(req.marker_path)
+        project_dir = os.path.dirname(os.path.abspath(req.marker_path))
+        register_path = find_or_migrate_register(
+            project_dir,
+            marker.get("project_number", ""),
+            marker.get("project_name", ""),
+        )
+        register = open_register(register_path)
+
+        resolved = resolve_paths(marker, req.marker_path)
+        drawings_root = resolved.get("drawings_dir", "")
+
+        folder_scan = scan_drawings_folder(drawings_root)
+
+        if folder_scan["drawings"]:
+            _populate_register_from_scan(register, folder_scan)
+            save_register(register_path, register)
+            _enrich_drawings_with_parsed(register)
+
+        return {"success": True, "folder_scan": folder_scan, "register": register}
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Failed to folder-scan project: {e}")
 
 
 def _enrich_drawings_with_parsed(register: dict[str, Any]) -> None:
