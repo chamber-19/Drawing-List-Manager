@@ -35,8 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     top-level-only, stem-matching, and informational-mismatch design
     decisions.
 
-### Added
-
 - **Self-identifying register filename.** New projects now write the register
   as `{project_number}-{sanitized_name}-DrawingIndex-Metadata.json` (e.g.
   `R3P-25074-Substation-Upgrade-DrawingIndex-Metadata.json`) instead of the

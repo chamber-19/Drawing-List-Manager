@@ -198,11 +198,13 @@ def _populate_register_from_scan(register: dict, folder_scan: dict) -> None:
     }
 
     # Build pdf lookup by stem (case-insensitive).
-    pdf_by_stem: dict[str, dict] = {}
+    # Keys are stems; values are the matching pdf FileInfo dict, or None when
+    # the drawing has no matching PDF.
+    pdf_by_stem: dict[str, dict | None] = {}
     for pair in folder_scan.get("matched", []):
         pdf_by_stem[pair["drawing"]["stem"].lower()] = pair["pdf"]
     for d_info in folder_scan.get("drawings_without_pdfs", []):
-        pdf_by_stem.setdefault(d_info["stem"].lower(), None)  # type: ignore[arg-type]
+        pdf_by_stem[d_info["stem"].lower()] = None
 
     all_dwg_infos: list[dict] = (
         [pair["drawing"] for pair in folder_scan.get("matched", [])]
@@ -225,7 +227,7 @@ def _populate_register_from_scan(register: dict, folder_scan: dict) -> None:
                 except ValueError:
                     entry["pdf_path"] = pdf_info["path"]
             else:
-                entry.setdefault("pdf_path", None)
+                entry["pdf_path"] = None
         else:
             new_entries.append(
                 _drawing_entry_from_file(dwg_info, pdf_info, drawings_root)

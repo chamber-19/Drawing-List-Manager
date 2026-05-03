@@ -112,7 +112,10 @@ export default function ProjectView({ markerPath, onClose, registerCloseGate }) 
     Promise.all([
       api.openProject(markerPath),
       api.scanProject(markerPath),
-      api.folderScan(markerPath).catch(() => null),
+      api.folderScan(markerPath).catch((err) => {
+        console.warn("Folder scan failed:", err?.message || err);
+        return null;
+      }),
     ])
       .then(([open, scanRes, folderScanRes]) => {
         if (cancelled) return;
