@@ -98,9 +98,16 @@ def create_project(
     dict
         The marker dict that was written to disk.
     """
-    from core.register import new_register, save_register
+    from core.register import new_register, save_register, build_register_filename, validate_project_number
 
     os.makedirs(folder, exist_ok=True)
+
+    # Validate project_number format.
+    if not validate_project_number(project_number):
+        raise ValueError(
+            f"project_number {project_number!r} is invalid. "
+            "Must match R3P-<digits>, e.g. 'R3P-25074'."
+        )
 
     marker_path = os.path.join(folder, MARKER_FILENAME)
     if os.path.exists(marker_path):
@@ -108,7 +115,7 @@ def create_project(
             f"A project marker already exists at {marker_path}; refusing to overwrite."
         )
 
-    register_filename = f"{project_number}.r3pdrawings.json"
+    register_filename = build_register_filename(project_number, project_name)
     register_path = os.path.join(folder, register_filename)
 
     register = new_register(project_number, project_name)

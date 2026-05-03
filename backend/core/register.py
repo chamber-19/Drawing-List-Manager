@@ -40,13 +40,22 @@ Validation rules:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from datetime import datetime, timezone
 from typing import Any
 
+logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 3
+
+# Legacy register filename suffix.  Old projects used ``{project_number}.r3pdrawings.json``.
+REGISTER_LEGACY_FILENAME = ".r3pdrawings.json"
+
+# Compiled regex for valid project numbers.  Shared by filename builder and
+# migration helper so both enforce the same rule.
+_PROJECT_NUMBER_RE = re.compile(r"^R3P-\d+$")
 
 VALID_SETS = {"P&C", "Physicals"}
 
@@ -58,6 +67,98 @@ VALID_STATUSES = {
     "READY FOR DRAFTING",
     "READY FOR SUBMITTAL",
 }
+
+
+def build_register_filename(project_number: str, project_name: str) -> str:
+    """Build the canonical register filename for a project.
+
+    Pattern: ``{project_number}-{sanitized_project_name}-DrawingIndex-Metadata.json``
+
+    ``project_name`` is sanitized — any character that is not alphanumeric,
+    a hyphen, or an underscore is replaced with a hyphen.  Runs of hyphens are
+    collapsed to a single hyphen, and leading/trailing hyphens are stripped.
+    This keeps the filename safe for Windows, macOS, and Linux filesystems.
+
+    If the sanitized project name is empty the name segment is omitted:
+    ``{project_number}-DrawingIndex-Metadata.json``.
+    """
+    safe_name = re.sub(r"[^a-zA-Z0-9_-]", "-", project_name)
+    safe_name = re.sub(r"-+", "-", safe_name).strip("-")
+    if safe_name:
+        return f"{project_number}-{safe_name}-DrawingIndex-Metadata.json"
+    return f"{project_number}-DrawingIndex-Metadata.json"
+
+
+def validate_project_number(project_number: str) -> bool:
+    """Return True if *project_number* matches the required ``R3P-<digits>`` format."""
+    return bool(_PROJECT_NUMBER_RE.match(project_number))
+
+
+def find_or_migrate_register(
+    project_dir: str, project_number: str, project_name: str
+) -> str:
+    """Return the path to the register file, renaming the legacy filename if needed.
+
+    Resolution order:
+
+    1. ``{project_number}-{sanitized_name}-DrawingIndex-Metadata.json`` exists
+       → return its path unchanged.
+    2. Legacy ``{project_number}.r3pdrawings.json`` exists → rename it in place
+       to the new pattern, log the rename, return the new path.
+    3. Neither exists → raise ``FileNotFoundError``.
+
+    Raises ``ValueError`` if *project_number* is not in the expected
+    ``R3P-<digits>`` format so that the value cannot introduce path traversal
+    when it is incorporated into a filename.
+    """
+    if not _PROJECT_NUMBER_RE.match(project_number):
+        raise ValueError(
+            f"project_number {project_number!r} is invalid. "
+            "Must match R3P-<digits>, e.g. 'R3P-25074'."
+        )
+
+    # Resolve project_dir to an absolute, canonical path so that any relative
+    # or symlink components are expanded before we construct child paths.
+    safe_dir = os.path.realpath(project_dir)
+
+    # Use os.path.basename to ensure the filename component contains no path
+    # separators even if the caller somehow passed a crafted value.
+    new_filename = os.path.basename(build_register_filename(project_number, project_name))
+    legacy_filename = os.path.basename(f"{project_number}{REGISTER_LEGACY_FILENAME}")
+
+    new_path = os.path.join(safe_dir, new_filename)
+    legacy_path = os.path.join(safe_dir, legacy_filename)
+
+    # Verify both paths are confined to the project directory.
+    # Use commonpath with realpath to handle symlinks and be robust against
+    # edge cases that dirname-based comparisons may miss.
+    for path in (new_path, legacy_path):
+        real_path = os.path.realpath(path)
+        try:
+            common = os.path.commonpath([safe_dir, real_path])
+        except ValueError:
+            # commonpath raises ValueError on Windows when paths are on
+            # different drives — that also means they're not confined.
+            common = ""
+        if common != safe_dir:
+            raise ValueError(
+                f"Computed register path {path!r} escapes the project directory."
+            )
+
+    if os.path.isfile(new_path):
+        return new_path
+
+    if os.path.isfile(legacy_path):
+        os.rename(legacy_path, new_path)
+        logger.info(
+            "Register filename migrated: %r → %r", legacy_filename, new_filename
+        )
+        return new_path
+
+    raise FileNotFoundError(
+        f"No register file found in {safe_dir!r}. "
+        f"Expected {new_filename!r} or legacy {legacy_filename!r}."
+    )
 
 
 def _now_iso() -> str:
@@ -77,7 +178,7 @@ def new_register(project_number: str, project_name: str = "") -> dict[str, Any]:
 
 
 def open_register(path: str) -> dict[str, Any]:
-    """Read a .r3pdrawings.json file from disk, auto-migrating if necessary."""
+    """Read a register JSON file from disk, auto-migrating if necessary."""
     from core.migration import migrate_register  # local import to avoid circular
 
     if not os.path.isfile(path):

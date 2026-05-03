@@ -18,14 +18,15 @@ Run:
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any
-import os
 
-from core.register import open_register, save_register, validate_register
+from core.register import open_register, save_register, validate_register, find_or_migrate_register
 from core.excel_import import import_excel
 from core.excel_export import export_full
 from core.project_config import (
@@ -114,8 +115,11 @@ def api_open_project(req: OpenProjectRequest):
     try:
         marker = read_marker(req.marker_path)
         project_dir = os.path.dirname(os.path.abspath(req.marker_path))
-        register_file = marker.get("register_file", "")
-        register_path = os.path.join(project_dir, register_file)
+        register_path = find_or_migrate_register(
+            project_dir,
+            marker.get("project_number", ""),
+            marker.get("project_name", ""),
+        )
         register = open_register(register_path)
         # NOTE: mutates `register` in place — adds a transient `_parsed`
         # field to each drawing for view-only consumption.
@@ -139,8 +143,11 @@ def api_scan_project(req: ScanProjectRequest):
     try:
         marker = read_marker(req.marker_path)
         project_dir = os.path.dirname(os.path.abspath(req.marker_path))
-        register_file = marker.get("register_file", "")
-        register_path = os.path.join(project_dir, register_file)
+        register_path = find_or_migrate_register(
+            project_dir,
+            marker.get("project_number", ""),
+            marker.get("project_name", ""),
+        )
         register = open_register(register_path)
         return scan_project(marker, req.marker_path, register)
     except FileNotFoundError as e:
@@ -189,8 +196,11 @@ def api_save_register(req: SaveRegisterRequest):
     try:
         project_dir = os.path.dirname(os.path.abspath(req.marker_path))
         marker = read_marker(req.marker_path)
-        register_file = marker.get("register_file", "")
-        register_path = os.path.join(project_dir, register_file)
+        register_path = find_or_migrate_register(
+            project_dir,
+            marker.get("project_number", ""),
+            marker.get("project_name", ""),
+        )
 
         # Strip transient _parsed fields if the frontend forgot to.
         register = req.register
@@ -208,7 +218,7 @@ def api_save_register(req: SaveRegisterRequest):
 
         save_register(register_path, register)
         # Regenerate Excel alongside the register file.
-        xlsx_path = register_path.replace(".r3pdrawings.json", ".xlsx")
+        xlsx_path = str(Path(register_path).with_suffix(".xlsx"))
         export_full(xlsx_path, register)
         return {"success": True}
     except HTTPException:
@@ -240,8 +250,11 @@ def api_validate_register(marker_path: str = Query(...)):
     try:
         project_dir = os.path.dirname(os.path.abspath(marker_path))
         marker = read_marker(marker_path)
-        register_file = marker.get("register_file", "")
-        register_path = os.path.join(project_dir, register_file)
+        register_path = find_or_migrate_register(
+            project_dir,
+            marker.get("project_number", ""),
+            marker.get("project_name", ""),
+        )
         register = open_register(register_path)
         warnings = validate_register(register)
         return {"success": True, "warnings": warnings}

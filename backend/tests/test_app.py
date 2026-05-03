@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 import app as app_module  # noqa: E402
 from core.project_config import MARKER_FILENAME  # noqa: E402
-from core.register import new_register, save_register  # noqa: E402
+from core.register import new_register, save_register, build_register_filename  # noqa: E402
 
 
 @pytest.fixture()
@@ -27,9 +27,10 @@ def client():
 def project(tmp_path):
     """Create a real project on disk and return (marker_path, register_path)."""
     project_number = "R3P-25074"
-    register_filename = f"{project_number}.r3pdrawings.json"
+    project_name = "Test"
+    register_filename = build_register_filename(project_number, project_name)
     register_path = os.path.join(tmp_path, register_filename)
-    save_register(register_path, new_register(project_number, "Test"))
+    save_register(register_path, new_register(project_number, project_name))
 
     marker = {
         "schema_version": 1,
