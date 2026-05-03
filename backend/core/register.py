@@ -130,10 +130,17 @@ def find_or_migrate_register(
     legacy_path = os.path.join(safe_dir, legacy_filename)
 
     # Verify both paths are confined to the project directory.
-    # Use os.path.realpath (not abspath) to follow symlinks when checking
-    # confinement, preventing symlink-based escapes within the directory.
+    # Use commonpath with realpath to handle symlinks and be robust against
+    # edge cases that dirname-based comparisons may miss.
     for path in (new_path, legacy_path):
-        if os.path.dirname(os.path.realpath(path)) != safe_dir:
+        real_path = os.path.realpath(path)
+        try:
+            common = os.path.commonpath([safe_dir, real_path])
+        except ValueError:
+            # commonpath raises ValueError on Windows when paths are on
+            # different drives — that also means they're not confined.
+            common = ""
+        if common != safe_dir:
             raise ValueError(
                 f"Computed register path {path!r} escapes the project directory."
             )

@@ -18,12 +18,13 @@ Run:
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any
-import os
 
 from core.register import open_register, save_register, validate_register, find_or_migrate_register
 from core.excel_import import import_excel
@@ -217,7 +218,6 @@ def api_save_register(req: SaveRegisterRequest):
 
         save_register(register_path, register)
         # Regenerate Excel alongside the register file.
-        from pathlib import Path
         xlsx_path = str(Path(register_path).with_suffix(".xlsx"))
         export_full(xlsx_path, register)
         return {"success": True}
