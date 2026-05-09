@@ -1,81 +1,71 @@
 # R3P Drawing List Manager
 
-A standalone Tauri desktop application for managing project drawing registers at ROOT3POWER ENGINEERING. This is one of the tools in the ROOT3POWER tool family.
+Backend service for managing project drawing registers at ROOT3POWER ENGINEERING. Handles register CRUD, R3P numbering validation, revision tracking, and branded Excel export.
 
-> **Status:** Slice 2 — editing unlocked. Workspace UI now supports add / edit / advance-rev / set-status / mark-superseded / promote-to-IFC / save, with backend validation surfacing structured errors. Schema v3 adds the `superseded` flag with auto-migration from v1 / v2.
+**Status:** Production-ready backend service (v1.0.0). Delivered via Chamber 19 launcher with universal desktop shell.
+
+---
+
+## Quick Start
+
+**Run the backend:**
+
+```bash
+cd backend
+python -m uvicorn app:app --reload --port 8001
+```
+
+**Test the backend:**
+
+```bash
+cd backend
+python -m pytest tests/ -v
+```
+
+**Access the service:**
+
+- Health check: `curl http://127.0.0.1:8001/api/health`
+- API docs: `http://127.0.0.1:8001/docs` (Swagger UI)
+- See [docs/API.md](docs/API.md) for full endpoint reference
 
 ---
 
 ## Architecture
 
-```
-Drawing-List-Manager/
-├── backend/                   Python FastAPI service (port 8001)
-│   ├── app.py                 All API routes
-│   ├── core/
-│   │   ├── register.py        JSON register model (schema v3) + open/save helpers
-│   │   ├── migration.py       v1 → v2 auto-migration on open
-│   │   ├── drawing_number.py  Drawing number parser / validator
-│   │   ├── project_config.py  Per-project marker + recent-list management
-│   │   ├── standards.py       R3P drawing type standards (skeleton)
-│   │   ├── excel_import.py    Legacy Master Deliverable List import
-│   │   └── excel_export.py    Branded Excel export (Drawing Index + Revision History)
-│   ├── tests/
-│   │   ├── fixtures/          Sample v1 and v2 register JSON files
-│   │   ├── test_drawing_number.py
-│   │   └── test_migration.py
-│   └── requirements.txt
-│
-└── frontend/                  React/Vite web + Tauri desktop shell
-    ├── src/
-    │   ├── App.jsx            Main React application (placeholder)
-    │   ├── main.jsx           React entry point
-    │   ├── splash.jsx         Splash screen (imports @chamber-19/desktop-toolkit/splash)
-    │   └── updater.jsx        Updater UI (imports @chamber-19/desktop-toolkit/updater)
-    ├── index.html
-    ├── splash.html
-    ├── updater.html
-    ├── .npmrc                 GitHub Packages registry config
-    ├── src-tauri/             Tauri desktop shell
-    │   ├── tauri.conf.json    Window / bundle configuration (splash + main windows)
-    │   ├── Cargo.toml         Rust dependencies (includes desktop-toolkit v2.3.0)
-    │   ├── build.rs           Tauri build script
-    │   ├── src/
-    │   │   ├── main.rs        Binary entry point
-    │   │   ├── lib.rs         TB-shaped startup sequence + Tauri commands
-    │   │   └── sidecar.rs     PyInstaller sidecar + Python dev fallback
-    │   ├── capabilities/      Tauri permission grants
-    │   └── icons/             App icon assets
-    ├── package.json
-    └── vite.config.js         Multi-entry build (main / splash / updater)
+### Current (May 2026)
+
+```text
+┌────────────────────────────┐
+│    Launcher (Tauri shell)  │
+│  (chamber-19/launcher)     │
+└───────────┬────────────────┘
+            │
+            │ HTTP (activation + routing)
+            │
+┌───────────▼────────────────┐
+│ Drawing List Manager       │
+│ Backend (FastAPI)          │
+│ Port 8001                  │
+│ ├─ Project management      │
+│ ├─ Register CRUD           │
+│ ├─ Excel export/import     │
+│ └─ Validation              │
+└────────────────────────────┘
 ```
 
-**Data flow**
+### Legacy
 
-```
-┌─────────────────────────────┐     HTTP/REST      ┌───────────────────┐
-│  Tauri WebView               │ ─────────────────► │  Python FastAPI   │
-│  React UI (port 1420 dev)   │ ◄───────────────── │  (port 8001)      │
-└─────────────────────────────┘                     └───────────────────┘
-        Tauri shell (Rust)            ▲
-        wraps the WebView             │
-                │                     │
-                └── sidecar / Python ─┘
-                    backend on startup
-```
-
-In production, Tauri spawns the bundled PyInstaller sidecar.
-In dev mode, it falls back to `python -m uvicorn app:app --port 8001`.
+The `frontend/` directory contains the reference Tauri desktop shell. It is **NOT built or deployed** in the current architecture. See [frontend/README.md](frontend/README.md) for historical context.
 
 ---
 
-## Register Schema (v2)
+## Register Schema (v3)
 
 The register file (`.r3pdrawings.json`) uses a flat `drawings[]` list:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "project_number": "R3P-25074",
   "project_name": "My Project",
   "current_phase": "IFA",

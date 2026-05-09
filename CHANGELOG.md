@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **May 2026 architecture refactor: backend-first service model**
+  - Drawing List Manager is now a **stateless Python FastAPI backend service** (port 8001)
+  - Removed Tauri desktop shell from production deployment; it's now reference code only
+  - Launcher (`chamber-19/launcher`) provides universal desktop integration for all backend services
+  - Activation centralized in `desktop-toolkit` FastAPI service
+  - All requests now flow through HTTP (JSON over REST) instead of Tauri IPC
+  - See [.github/copilot-instructions.md](.github/copilot-instructions.md) and [docs/API.md](docs/API.md) for details
+  - Frontend code preserved in `frontend/` for historical reference; not built/deployed
+
 ### Added
 
 - **Autodetect drawings at project creation.** When a user creates a new
