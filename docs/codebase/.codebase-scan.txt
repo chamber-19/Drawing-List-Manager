@@ -1,0 +1,251 @@
+
+=== DIRECTORY TREE (max depth 3, source files only) ===
+.gitattributes
+.github
+.github\copilot-instructions.md
+.github\dependabot.yml
+.github\instructions
+.github\instructions\register-domain.instructions.md
+.github\prompts
+.github\prompts\consume-toolkit-bump.prompt.md
+.github\workflows
+.github\workflows\copilot-setup-steps.yml
+.gitignore
+AGENTS.md
+backend
+backend\app.py
+backend\core
+backend\core\__init__.py
+backend\core\drawing_number.py
+backend\core\excel_export.py
+backend\core\excel_import.py
+backend\core\folder_scan.py
+backend\core\migration.py
+backend\core\project_config.py
+backend\core\project_scan.py
+backend\core\register.py
+backend\core\standards.py
+backend\requirements.txt
+backend\tests
+backend\tests\fixtures
+backend\tests\fixtures\sample_v1_register.json
+backend\tests\fixtures\sample_v2_register.json
+backend\tests\fixtures\sample_v3_register.json
+backend\tests\test_app.py
+backend\tests\test_drawing_number.py
+backend\tests\test_folder_scan.py
+backend\tests\test_migration.py
+backend\tests\test_project_config.py
+backend\tests\test_project_scan.py
+backend\tests\test_register_filename.py
+backend\tests\test_register_validation.py
+backend\tests\test_standards.py
+CHANGELOG.md
+dlm-ui-sketch-v2.html
+docs
+docs\API.md
+docs\codebase
+docs\codebase\.codebase-scan.txt
+docs\codebase\ARCHITECTURE.md
+docs\codebase\CONCERNS.md
+docs\codebase\CONVENTIONS.md
+docs\codebase\INTEGRATIONS.md
+docs\codebase\STACK.md
+docs\codebase\STRUCTURE.md
+docs\codebase\TESTING.md
+docs\decisions
+docs\decisions\2026-04-30-pre-launch-cleanup.md
+docs\decisions\2026-04-30-schema-version-counters.md
+docs\decisions\2026-05-03-folder-scan-design.md
+docs\decisions\2026-05-03-register-filename-pattern.md
+environment.yml
+frontend
+frontend\.env.example
+frontend\.gitignore
+frontend\.npmrc
+frontend\index.html
+frontend\package-lock.json
+frontend\package.json
+frontend\README.md
+frontend\splash.html
+frontend\src
+frontend\src\api.js
+frontend\src\App.jsx
+frontend\src\dirty.js
+frontend\src\main.jsx
+frontend\src\operations.js
+frontend\src\selection.js
+frontend\src\splash.jsx
+frontend\src\styles.js
+frontend\src\tokens.js
+frontend\src\updater.jsx
+frontend\src\views
+frontend\src\views\LandingView.jsx
+frontend\src\views\ProjectView.jsx
+frontend\src\workspace
+frontend\src\workspace\BandCard.jsx
+frontend\src\workspace\bandKey.js
+frontend\src\workspace\DrawingRow.jsx
+frontend\src\workspace\EditableField.jsx
+frontend\src\workspace\FolderScanPanel.jsx
+frontend\src\workspace\format.js
+frontend\src\workspace\glyphs.jsx
+frontend\src\workspace\Inspector.jsx
+frontend\src\workspace\modals
+frontend\src\workspace\NavTree.jsx
+frontend\src\workspace\ProjectBar.jsx
+frontend\src\workspace\ReconcileView.jsx
+frontend\src\workspace\Toast.jsx
+frontend\src\workspace\ViewTabs.jsx
+frontend\src-tauri
+frontend\src-tauri\binaries
+frontend\src-tauri\binaries\dlm-backend
+frontend\src-tauri\build.rs
+frontend\src-tauri\capabilities
+frontend\src-tauri\capabilities\default.json
+frontend\src-tauri\Cargo.lock
+frontend\src-tauri\Cargo.toml
+frontend\src-tauri\desktop-toolkit-updater.exe
+frontend\src-tauri\gen
+frontend\src-tauri\gen\schemas
+frontend\src-tauri\icons
+frontend\src-tauri\icons\128x128.png
+frontend\src-tauri\icons\128x128@2x.png
+frontend\src-tauri\icons\32x32.png
+frontend\src-tauri\icons\64x64.png
+frontend\src-tauri\icons\android
+frontend\src-tauri\icons\icon.icns
+frontend\src-tauri\icons\icon.ico
+frontend\src-tauri\icons\icon.png
+frontend\src-tauri\icons\ios
+frontend\src-tauri\icons\Square107x107Logo.png
+frontend\src-tauri\icons\Square142x142Logo.png
+frontend\src-tauri\icons\Square150x150Logo.png
+frontend\src-tauri\icons\Square284x284Logo.png
+frontend\src-tauri\icons\Square30x30Logo.png
+frontend\src-tauri\icons\Square310x310Logo.png
+frontend\src-tauri\icons\Square44x44Logo.png
+frontend\src-tauri\icons\Square71x71Logo.png
+frontend\src-tauri\icons\Square89x89Logo.png
+frontend\src-tauri\icons\StoreLogo.png
+frontend\src-tauri\installer
+frontend\src-tauri\installer\hooks.nsh
+frontend\src-tauri\installer\nsis-header.bmp
+frontend\src-tauri\installer\nsis-header.svg
+frontend\src-tauri\installer\nsis-sidebar.bmp
+frontend\src-tauri\installer\nsis-sidebar.svg
+frontend\src-tauri\src
+frontend\src-tauri\src\lib.rs
+frontend\src-tauri\src\main.rs
+frontend\src-tauri\src\sidecar.rs
+frontend\src-tauri\tauri.conf.json
+frontend\updater.html
+frontend\vite.config.js
+icon.svg
+README.md
+
+=== STACK DETECTION (manifest files) ===
+No recognized manifest files found in project root.
+
+=== ENTRY POINTS ===
+No common entry points found. Check 'main' or 'scripts.start' in manifest files above.
+
+=== LINTING AND FORMATTING CONFIG ===
+No linting or formatting config files found in project root.
+
+=== ENVIRONMENT VARIABLE TEMPLATES ===
+No .env.example or .env.template found. Identify required environment variables by searching the code and config for environment variable reads.
+
+=== TODO / FIXME / HACK (production code only, test dirs excluded) ===
+backend\core\standards.py:23: `# TODO: Fill from R3P-SPEC-002 §X.Y` marker. Fill in a follow-up PR.
+backend\core\standards.py:60: # TODO: Fill from R3P-SPEC-002 §1.2
+backend\core\standards.py:67: # TODO: Fill from R3P-SPEC-002 §1.3
+backend\core\standards.py:74: # TODO: Fill from R3P-SPEC-002 §1.4
+backend\core\standards.py:81: # TODO: Fill from R3P-SPEC-002 §1.5
+backend\core\standards.py:88: # TODO: Fill from R3P-SPEC-002 §1.6
+backend\core\standards.py:120: # TODO: Fill from R3P-SPEC-002 §1.10
+backend\core\standards.py:148: # TODO: Add further disciplines (C, M, S, ...) from R3P-SPEC-002
+
+=== GIT RECENT COMMITS (last 20) ===
+d2e9db4 chore: add environment configuration for conda
+5542eb9 Merge branch 'main' of https://github.com/chamber-19/Drawing-List-Manager
+f9c8082 Merge pull request #62 from chamber-19/auto/sync-copilot-instructions-5f9ff9f
+2749f18 chore(instructions): sync Copilot instructions with org skill updates
+19a3fbd docs: refactor to backend-first architecture (May 2026)
+4ea7892 Merge pull request #56 from chamber-19/copilot/add-drawing-scanning-feature
+d063761 fix: address remaining code review feedback (style and redundancy fixes)
+0b3e101 fix: address code review feedback from parallel validation
+ff4cfcd feat(autodetect): scan drawings folder at project creation
+31c3944 Initial plan
+e7616f4 Merge pull request #54 from chamber-19/copilot/rename-drawing-register-file
+1fe01a3 refactor: stronger confinement check with commonpath, move Path import to module level
+dbe0f15 refactor: expose validate_project_number(), use realpath in confinement check
+bdb0eff refactor: address second code review pass
+6879845 fix: address code review â€” deduplicate CHANGELOG Added header, harden find_or_migrate_register against path traversal
+c76bafc feat(filename): rename drawing register to self-identifying pattern
+3808a67 Initial plan
+f08df40 Merge pull request #52 from chamber-19/copilot/chore-add-version-safety-guards
+8f4044a docs: add schema-version-counters ADR
+c35d316 Initial plan
+
+=== HIGH-CHURN FILES (last 90 days, top 20) ===
+  12 backend/app.py
+  10 CHANGELOG.md
+  10 backend/core/register.py
+   8 backend/requirements.txt
+   7 README.md
+   7 backend/core/project_config.py
+   6 frontend/src/App.jsx
+   6 backend/core/excel_export.py
+   5 .github/copilot-instructions.md
+   5 frontend/src/views/ProjectView.jsx
+   5 .github/workflows/copilot-setup-steps.yml
+   4 frontend/src/views/LandingView.jsx
+   4 frontend/package-lock.json
+   4 frontend/src-tauri/src/lib.rs
+   4 frontend/src-tauri/tauri.conf.json
+   4 .github/dependabot.yml
+   3 frontend/src/api.js
+   3 frontend/src/workspace/modals/CreateProjectModal.jsx
+   3 backend/tests/test_project_config.py
+   3 backend/core/excel_import.py
+
+=== MONOREPO SIGNALS ===
+No monorepo signals detected.
+
+=== CODE METRICS ===
+Total files scanned: 161
+Total lines of code: 15709
+
+Files by language:
+  Other: 101
+  JavaScript/React: 27
+  Python: 20
+  JavaScript: 9
+  Rust: 4
+
+Top 10 largest files:
+frontend\src-tauri\desktop-toolkit-updater.exe: 304.5KB
+frontend\src-tauri\installer\nsis-sidebar.bmp: 150.9KB
+frontend\src-tauri\gen\schemas\desktop-schema.json: 130.0KB
+frontend\src-tauri\gen\schemas\windows-schema.json: 130.0KB
+frontend\src-tauri\Cargo.lock: 125.4KB
+frontend\src-tauri\icons\icon.icns: 111.3KB
+dlm-ui-sketch-v2.html: 73.5KB
+frontend\src-tauri\gen\schemas\acl-manifests.json: 70.1KB
+icon.svg: 44.8KB
+frontend\package-lock.json: 40.3KB
+
+=== CI/CD PIPELINES ===
+CI/CD: GitHub Actions
+
+=== CONTAINERS & ORCHESTRATION ===
+No containerization configs detected.
+
+=== SECURITY & COMPLIANCE ===
+No security configs detected.
+
+=== PERFORMANCE & TESTING ===
+No performance testing configs detected.
+
+=== SCAN COMPLETE ===
