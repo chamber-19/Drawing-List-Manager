@@ -91,3 +91,7 @@ Path-specific rules live under `.github/instructions/`.
 <!-- Added by chamber-19-skill-sync — required skill references for this repo's stack -->
 - Read [`docs/skills/RUST.MD`](https://github.com/chamber-19/.github/blob/main/docs/skills/RUST.MD) before any Rust work.
 - Read [`docs/skills/TAURI.MD`](https://github.com/chamber-19/.github/blob/main/docs/skills/TAURI.MD) before any Tauri work.
+
+
+<!-- Added by chamber-19-skill-sync — required skill references for this repo's stack -->
+- Read [`docs/skills/PYTHON.md`](https://github.com/chamber-19/.github/blob/main/docs/skills/PYTHON.md) before any Python work.
