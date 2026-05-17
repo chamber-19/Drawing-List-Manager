@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Bump `chamber19-desktop-toolkit` pin to `v2.5.0` in `backend/requirements.txt`.
+  Added `toolkit_bearer_dep` import smoke-check to `backend/app.py` (no routes
+  protected today; wire with `Depends(toolkit_bearer_dep)` when DLM ships
+  protected endpoints).
+
 - **May 2026 architecture refactor: backend-first service model**
   - Drawing List Manager is now a **stateless Python FastAPI backend service** (port 8001)
   - Removed Tauri desktop shell from production deployment; it's now reference code only
