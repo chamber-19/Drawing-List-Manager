@@ -22,7 +22,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 
 // ── Backend state ─────────────────────────────────────────────────────────
 
@@ -121,17 +121,11 @@ pub fn run() {
     let child: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
     let child_for_setup = child.clone();
 
-    // Set the default shared-drive update path for the framework's updater module.
-    // SAFETY: single-threaded at this point — tauri::Builder hasn't spawned any
-    // threads yet. `std::env::set_var` is unsafe in Rust 1.81+ in multi-threaded
-    // programs; this call is safe here because it precedes thread creation.
-    if std::env::var(updater::UPDATE_PATH_ENV_VAR).is_err() {
-        #[allow(unsafe_code)]
-        // SAFETY: single-threaded at this point — see above.
-        unsafe {
-            std::env::set_var(updater::UPDATE_PATH_ENV_VAR, DLM_UPDATE_PATH_DEFAULT);
-        }
-    }
+    // Configure the default shared-drive update path. No-op if the env var
+    // is already set externally (launcher / integration test). Must run before
+    // tauri::Builder::default() because the toolkit helper internally calls
+    // std::env::set_var, which is unsafe in multi-threaded programs.
+    updater::set_default_update_path(DLM_UPDATE_PATH_DEFAULT);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -169,16 +163,7 @@ pub fn run() {
         })
         .on_window_event({
             let child_cleanup = child.clone();
-            move |_window, event| {
-                if let tauri::WindowEvent::Destroyed = event {
-                    let mut proc_opt = child_cleanup.lock().unwrap().take();
-                    if let Some(ref mut proc) = proc_opt {
-                        println!("[tauri] Stopping backend sidecar (PID {})", proc.id());
-                        let _ = proc.kill();
-                        let _ = proc.wait();
-                    }
-                }
-            }
+            move |_window, event| sidecar::handle_window_destroyed(event, &child_cleanup)
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -208,13 +193,9 @@ fn startup_sequence(app: tauri::AppHandle, child_arc: Arc<Mutex<Option<Child>>>)
         *state.url.lock().unwrap() = backend_url;
     }
 
-    // ── 2. Shared drive (informational; actual check deferred to React) ───
-    splash::emit_status(&app, "mount", "Mounting shared drive", splash::StatusKind::Pending);
-    splash::emit_status(&app, "mount", "Mounting shared drive", splash::StatusKind::Ok);
-
-    // ── 3. Update check status (deferred; emit Ok immediately) ───────────
-    splash::emit_status(&app, "updates", "Checking for updates", splash::StatusKind::Pending);
-    splash::emit_status(&app, "updates", "Checking for updates", splash::StatusKind::Ok);
+    // ── 2-3. Shared drive + update check (both deferred to React) ────────
+    splash::emit_status_step(&app, "mount", "Mounting shared drive");
+    splash::emit_status_step(&app, "updates", "Checking for updates");
 
     // ── 4. Final status ────────────────────────────────────────────────────
     splash::emit_status(&app, "final", "Ready", splash::StatusKind::Ok);
@@ -232,23 +213,7 @@ fn startup_sequence(app: tauri::AppHandle, child_arc: Arc<Mutex<Option<Child>>>)
     }
 
     // ── 6. Transition to main window ──────────────────────────────────────
-    if let Err(e) = app.emit("splash://fade-now", ()) {
-        eprintln!("[splash] emit splash://fade-now failed: {e}");
-    }
-
-    thread::sleep(Duration::from_millis(
-        FADE_HOLD_MS + FADE_DURATION_MS + FADE_SAFETY_MS,
-    ));
-
-    // Safety net: idempotent if the frontend already invoked
-    // splash_fade_complete from `transitionend`.
-    let app_for_ui = app.clone();
-    let _ = app.run_on_main_thread(move || {
-        if let Some(main_win) = app_for_ui.get_webview_window("main") {
-            let _ = main_win.show();
-        }
-        splash::close_splash(&app_for_ui);
-    });
+    splash::transition_to_main_window(&app, FADE_HOLD_MS, FADE_DURATION_MS, FADE_SAFETY_MS);
 }
 
 // ── Backend spawning ──────────────────────────────────────────────────────
