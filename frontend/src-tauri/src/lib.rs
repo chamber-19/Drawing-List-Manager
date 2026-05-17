@@ -14,9 +14,7 @@
 //      invokes `check_for_update` on mount and shows the UpdateModal if
 //      a newer version is found on the shared drive.
 
-mod sidecar;
-
-use desktop_toolkit::{activation, splash, updater};
+use desktop_toolkit::{activation, sidecar, splash, updater};
 use desktop_toolkit::updater::UpdateState;
 
 use std::process::Child;
@@ -255,9 +253,13 @@ fn startup_sequence(app: tauri::AppHandle, child_arc: Arc<Mutex<Option<Child>>>)
 
 // ── Backend spawning ──────────────────────────────────────────────────────
 
+/// Dev port for the FastAPI sidecar -- must match the URL the frontend
+/// expects in dev (`BACKEND_ADDR` above).
+const BACKEND_DEV_PORT: u16 = 8001;
+
 fn do_spawn_backend(child_arc: &Arc<Mutex<Option<Child>>>) -> String {
     // Production: try the PyInstaller sidecar first.
-    if let Some(sidecar_path) = sidecar::find_sidecar_path() {
+    if let Some(sidecar_path) = sidecar::find_sidecar_path(DLM_SIDECAR_NAME) {
         println!("[sidecar] Found sidecar at: {}", sidecar_path.display());
         match sidecar::spawn_sidecar(&sidecar_path) {
             Ok((proc, port)) => {
@@ -270,7 +272,7 @@ fn do_spawn_backend(child_arc: &Arc<Mutex<Option<Child>>>) -> String {
         }
     }
 
-    // Dev fallback: Python uvicorn on the fixed port 8001.
-    sidecar::spawn_python_dev_backend(child_arc);
+    // Dev fallback: Python uvicorn on the fixed port.
+    sidecar::spawn_python_dev_backend(child_arc, BACKEND_DEV_PORT);
     format!("http://{BACKEND_ADDR}")
 }
