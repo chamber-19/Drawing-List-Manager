@@ -108,7 +108,7 @@ export function ModalButton({ children, onClick, primary, danger, disabled, type
     opacity: disabled ? 0.45 : 1,
   };
   const variant = danger
-    ? { background: T.err, color: "#FFFFFF", border: `1px solid ${T.err}` }
+    ? { background: T.err, color: T.t1, border: `1px solid ${T.err}` }
     : primary
       ? { background: T.acc, color: T.tOn, border: `1px solid ${T.acc}` }
       : {};
