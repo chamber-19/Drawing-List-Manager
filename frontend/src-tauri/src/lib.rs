@@ -16,7 +16,7 @@
 
 mod sidecar;
 
-use desktop_toolkit::{splash, updater};
+use desktop_toolkit::{activation, splash, updater};
 use desktop_toolkit::updater::UpdateState;
 
 use std::process::Child;
@@ -145,6 +145,9 @@ pub fn run() {
             splash::splash_is_first_run,
             splash::splash_ready,
             splash::splash_fade_complete,
+            activation::commands::toolkit_check_activation,
+            activation::commands::toolkit_activate_with_pin,
+            activation::commands::toolkit_deactivate,
         ])
         .manage(BackendState {
             url: Mutex::new(format!("http://{BACKEND_ADDR}")),
