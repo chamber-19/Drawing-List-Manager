@@ -41,6 +41,11 @@ from core.folder_scan import scan_drawings_folder
 from core.drawing_number import parse as parse_drawing_number, DrawingNumberError
 from core.standards import find_band
 
+# Smoke-check: confirm the bearer dependency helper is importable.
+# No routes are protected today; when DLM ships protected endpoints,
+# wire with Depends(toolkit_bearer_dep) — it's one import away.
+from chamber19_desktop_toolkit.auth import toolkit_bearer_dep  # noqa: F401
+
 
 # ─── App Setup ────────────────────────────────────────────────
 
