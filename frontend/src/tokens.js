@@ -36,10 +36,10 @@ export const T = {
   t4:  "#4F4B43",
   tOn: "#1C1B19",
 
-  // Accent variants -- color-mix-eligible from --ch-accent.
+  // Accent variants -- color-mix derivations of --ch-accent.
   accBright: "#D69960",
-  accSoft:   "#C4884D22",
-  accGlow:   "#C4884D11",
+  accSoft:   "color-mix(in srgb, var(--ch-accent, #C4884D) 13%, transparent)",
+  accGlow:   "color-mix(in srgb, var(--ch-accent, #C4884D) 7%, transparent)",
   accDim:    "#8B5E33",
 
   // Status colors.
