@@ -130,6 +130,8 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
         <div>
           <Label hint="e.g. R3P-25074">Project number</Label>
           <input
+            id="cp-project-number"
+            name="project-number"
             value={projectNumber}
             onChange={(e) => setProjectNumber(e.target.value)}
             spellCheck={false}
@@ -139,6 +141,8 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
         <div>
           <Label>Project name</Label>
           <input
+            id="cp-project-name"
+            name="project-name"
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
             placeholder="e.g. North Substation Upgrade"
@@ -149,6 +153,8 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
           <Label>Folder</Label>
           <div style={{ display: "flex", gap: 8 }}>
             <input
+              id="cp-folder"
+              name="project-folder"
               value={folder}
               onChange={(e) => setFolder(e.target.value)}
               placeholder="Click Browse or paste a path"
@@ -181,6 +187,8 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }) {
           </Label>
           <div style={{ display: "flex", gap: 8 }}>
             <input
+              id="cp-drawings-folder"
+              name="drawings-folder"
               value={drawingsFolder}
               onChange={(e) => setDrawingsFolder(e.target.value)}
               placeholder="Leave blank to set up later"
